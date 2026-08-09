@@ -112,8 +112,10 @@
 
   <header class="app-header">
     <div class="brand">
-      <img src="logo.png" alt="НАЛИВАЙ" class="brand-logo" id="brandLogo" onerror="this.style.display='none'; document.getElementById('brandTextFallback').hidden=false;">
-      <span class="brand-glow" id="brandTextFallback" hidden>НАЛИВАЙ</span>
+      <span class="brand-logo-plate">
+        <img src="logo.png" alt="НАЛИВАЙ" class="brand-logo" id="brandLogo" onerror="this.style.display='none'; document.getElementById('brandTextFallback').hidden=false;">
+        <span class="brand-glow" id="brandTextFallback" hidden>НАЛИВАЙ</span>
+      </span>
       <span class="beta-pill">бета</span>
     </div>
     <div class="header-actions">
@@ -321,6 +323,8 @@
     <button type="button" class="modal-close" id="placeModalCloseBtn">×</button>
     <p class="eyebrow" id="placeModalEyebrow">заклад</p>
     <h2 id="placeModalTitle">Назва закладу</h2>
+    <p class="place-meta-line" id="placeModalAddress" hidden></p>
+    <p class="place-meta-line place-meta-hours" id="placeModalHours" hidden></p>
     <div id="placeNewFields">
       <label>Назва закладу
         <input type="text" id="newPlaceName" placeholder="Бар «Хвиля»">
