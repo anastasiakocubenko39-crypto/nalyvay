@@ -479,6 +479,7 @@ function finishSwipe(action){
   const id = topCard?.dataset.id;
   if(!id) return;
   isSwiping = true;
+  hideSwipeHint();
   const flyX = action === "like" ? 500 : -500;
   if(topCard){
     topCard.style.transform = `translate(${flyX}px, -40px) rotate(${flyX/14}deg)`;
@@ -505,8 +506,22 @@ showPassedBtn.addEventListener("click", ()=>{
   set(LS.swipes, swipes);
   rebuildQueue();
 });
-document.getElementById("passBtn").addEventListener("click", ()=> finishSwipe("pass"));
-document.getElementById("likeBtn").addEventListener("click", ()=> finishSwipe("like"));
+// Свайп лише жестом (тач/мишею) або стрілками клавіатури — без кнопок ✕ / 🍾
+document.addEventListener("keydown", e=>{
+  const swipeScreenActive = document.getElementById("screen-swipe").classList.contains("active");
+  if(!swipeScreenActive) return;
+  if(e.key === "ArrowLeft") finishSwipe("pass");
+  if(e.key === "ArrowRight") finishSwipe("like");
+});
+
+// Підказку "← пропустити / лайк →" ховаємо назавжди після першого свайпу
+const swipeHintEl = document.getElementById("swipeHint");
+function hideSwipeHint(){
+  if(swipeHintEl && !swipeHintEl.hidden){
+    swipeHintEl.classList.add("swipe-hint-gone");
+    setTimeout(()=>{ swipeHintEl.hidden = true; }, 400);
+  }
+}
 
 /* ---------- МЕТЧІ ---------- */
 
