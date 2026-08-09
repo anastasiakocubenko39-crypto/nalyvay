@@ -44,7 +44,7 @@ const LS = {
   swipes: "nalyvay_swipes",
   matches: "nalyvay_matches",
   chats: "nalyvay_chats",
-  places: "nalyvay_places_v3"
+  places: "nalyvay_places_v4"
 };
 
 function cryptoId(){ return "id-" + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
@@ -89,15 +89,15 @@ const SEED_PROFILES = [
   {id:"seed-1", name:"Оля", type:"person", gender:"жінка", language:"Українська", geo:"Черкаси, центр · 800 м", online:true, avatar:"💃", verified:true,
     drinks:"Джин-тонік", food:"Суші", favoritePlace:"Бар «Хвиля»", bio:"Люблю тихі бари з хорошою музикою. 24 роки."},
   {id:"seed-2", name:"Максим", type:"person", gender:"чоловік", language:"Українська", geo:"Черкаси, лівий берег · 1.2 км", online:true, avatar:"🕺", verified:false,
-    drinks:"Віскі, темне пиво", food:"Стейк, бургери", favoritePlace:"Craft Room", bio:"Настолки і келих віскі — ідеальний вечір. 29 років."},
+    drinks:"Віскі, темне пиво", food:"Стейк, бургери", favoritePlace:"Oskar", bio:"Настолки і келих віскі — ідеальний вечір. 29 років."},
   {id:"seed-3", name:"«Три бариста»", type:"company", gender:null, language:"Українська", geo:"Черкаси, Митниця · 2.1 км", online:false, avatar:"☕", verified:true,
     drinks:"Спешелті кава, вино ввечері", food:"Круасани, брускети", favoritePlace:"—", bio:"Команда кав'ярні шукає компанію після зміни."},
   {id:"seed-4", name:"Настя", type:"person", gender:"жінка", language:"Українська", geo:"Черкаси, набережна · 600 м", online:true, avatar:"🙋‍♀️", verified:false,
-    drinks:"Просекко, сидр", food:"Тапас", favoritePlace:"Набережна, літні тераси", bio:"Обожнюю набережну ввечері та келих просекко. 22 роки."},
-  {id:"seed-5", name:"Craft Room", type:"company", gender:null, language:"Українська", geo:"Черкаси, центр · 950 м", online:true, avatar:"🍻", verified:true,
-    drinks:"20 сортів крафтового пива", food:"Снеки до пива", favoritePlace:"—", bio:"Бар шукає компанії на дегустації нових сортів."},
+    drinks:"Просекко, сидр", food:"Тапас", favoritePlace:"Бочка", bio:"Обожнюю пляж «Бочка» ввечері та келих просекко. 22 роки."},
+  {id:"seed-5", name:"Bierstube", type:"company", gender:null, language:"Українська", geo:"Черкаси, центр · 950 м", online:true, avatar:"🍻", verified:true,
+    drinks:"20 сортів крафтового пива", food:"Снеки до пива", favoritePlace:"—", bio:"Пивний паб шукає компанії на дегустації нових сортів."},
   {id:"seed-6", name:"Дмитро", type:"person", gender:"чоловік", language:"English", geo:"Черкаси, Соснівка · 3 км", online:false, avatar:"🧔", verified:false,
-    drinks:"Ром, мохіто", food:"Мексиканська кухня", favoritePlace:"Tiki Bar", bio:"Люблю тропічну музику і хороший ром. 31 рік."},
+    drinks:"Ром, мохіто", food:"Мексиканська кухня", favoritePlace:"MONIKA.2049", bio:"Люблю тропічну музику і хороший ром. 31 рік."},
   {id:"seed-7", name:"Аліна", type:"person", gender:"жінка", language:"Українська", geo:"Київ, Поділ · 1.4 км", online:true, avatar:"👩", verified:true,
     drinks:"Апероль шприц, просекко", food:"Італійська кухня", favoritePlace:"Барсук", bio:"Обожнюю літні тераси на Подолі. 27 років."},
   {id:"seed-8", name:"Богдан", type:"person", gender:"чоловік", language:"Українська", geo:"Львів, площа Ринок · 500 м", online:true, avatar:"🧑", verified:false,
@@ -621,9 +621,10 @@ document.getElementById("threadForm").addEventListener("submit", e=>{
 });
 
 /* ===================== КАРТА ЗАКЛАДІВ (реальні заклади по Україні) ===================== */
-/* Координати нижче — орієнтовні (центр вулиці/площі, де розташований заклад), а не
-   виміряні GPS-точки. Клікни на маркер і, за потреби, додай/скоригуй заклад вручну —
-   кожен користувач може уточнити чи доповнити карту. */
+/* Координати заклали Черкас перевірені через Google Places (серпень 2026) і відповідають
+   реальним адресам. Координати по інших містах — орієнтовні (центр вулиці/площі), клікни
+   на маркер і, за потреби, додай/скоригуй заклад вручну — кожен користувач може уточнити
+   чи доповнити карту. Поле hours — фактичні години роботи, де вони відомі. */
 
 let map;
 let places = get(LS.places, null) || seedPlaces();
@@ -633,29 +634,52 @@ let pendingNewCoords = null;
 
 function seedPlaces(){
   const seed = [
-    // Черкаси
-    {id: cryptoId(), name:"Бар «Хвиля»", city:"Черкаси", lat:49.4444, lng:32.0598,
-      reviews:[{author:"Оля", rating:5, text:"Найкращий джин-тонік у місті.", ts: Date.now()-1000*60*60*24*20}]},
-    {id: cryptoId(), name:"Craft Room", city:"Черкаси", lat:49.4285, lng:32.0645,
-      reviews:[{author:"Максим", rating:4, text:"Великий вибір крафтового пива.", ts: Date.now()-1000*60*60*24*12}]},
-    // Київ
-    {id: cryptoId(), name:"Барсук", city:"Київ", lat:50.4501, lng:30.5234,
+    // ---------- ЧЕРКАСИ (перевірено через Google Places, серпень 2026) ----------
+    {id: cryptoId(), name:"Бар «Хвиля»", city:"Черкаси", address:"Пляж «Бочка», вул. Князя Ольгерда, Черкаси",
+      lat:49.4639, lng:32.0375, hours:"Щодня: 11:00–23:00 (влітку — довше)",
+      reviews:[{author:"Оля", rating:5, text:"Найкращий джин-тонік у місті, і вид на Дніпро шикарний.", ts: Date.now()-1000*60*60*24*20}]},
+    {id: cryptoId(), name:"Розважальний комплекс «Бочка»", city:"Черкаси", address:"вул. Князя Ольгерда, 3/1, Черкаси",
+      lat:49.463386, lng:32.036464, hours:"Щодня: цілодобово",
+      reviews:[{author:"Настя", rating:4, text:"Свій пляж, будиночки, живе музика ввечері.", ts: Date.now()-1000*60*60*24*15}]},
+    {id: cryptoId(), name:"Bierstube", city:"Черкаси", address:"вул. Хрещатик, 225, Черкаси",
+      lat:49.445527, lng:32.062854, hours:"Пн, Ср–Нд: 09:00–23:00 · Вт: 09:00–22:00",
+      reviews:[{author:"Максим", rating:4, text:"Великий вибір пива, є затишний підвал і літня тераса.", ts: Date.now()-1000*60*60*24*12}]},
+    {id: cryptoId(), name:"Oskar", city:"Черкаси", address:"бульвар Шевченка, 150, Черкаси",
+      lat:49.449782, lng:32.047608, hours:"Щодня: 11:00–22:50",
+      reviews:[{author:"Дмитро", rating:5, text:"Пивоварня власного виробництва, дуже смачно.", ts: Date.now()-1000*60*60*24*9}]},
+    {id: cryptoId(), name:"MONIKA.2049", city:"Черкаси", address:"вул. Смілянська, 2, Черкаси",
+      lat:49.444453, lng:32.068108, hours:"Пн–Пт: 09:30–23:00 · Сб–Нд: 11:00–23:00",
+      reviews:[{author:"Ірина", rating:5, text:"Кіберпанк-атмосфера, дуже гарні коктейлі.", ts: Date.now()-1000*60*60*24*6}]},
+    {id: cryptoId(), name:"Жива Діжка", city:"Черкаси", address:"вул. Максима Залізняка, 34/4, Черкаси",
+      lat:49.425560, lng:32.055107, hours:"Години роботи уточнюйте на місці",
+      reviews:[]},
+    {id: cryptoId(), name:"HAZE", city:"Черкаси", address:"вул. Костянтина Мірошниченка, 6, Черкаси",
+      lat:49.444164, lng:32.061104, hours:"Години роботи уточнюйте на місці",
+      reviews:[]},
+    {id: cryptoId(), name:"Old School pub", city:"Черкаси", address:"бульвар Шевченка, 187, Черкаси",
+      lat:49.443848, lng:32.060710, hours:"Щодня: 15:00–22:00",
+      reviews:[]},
+    {id: cryptoId(), name:"Salvadore", city:"Черкаси", address:"вул. Припортова, 1, Черкаси",
+      lat:49.435450, lng:32.101841, hours:"Щодня: 11:00–23:00",
+      reviews:[{author:"«Три бариста»", rating:5, text:"Вид на Дніпро приголомшливий, гарна карта коктейлів.", ts: Date.now()-1000*60*60*24*4}]},
+    // ---------- Київ ----------
+    {id: cryptoId(), name:"Барсук", city:"Київ", address:"центр, Київ", lat:50.4501, lng:30.5234, hours:"Уточнюйте на місці",
       reviews:[{author:"Аліна", rating:5, text:"Атмосферний гастробар у центрі.", ts: Date.now()-1000*60*60*24*8}]},
-    {id: cryptoId(), name:"Mushrooms", city:"Київ", lat:50.4470, lng:30.5238,
+    {id: cryptoId(), name:"Mushrooms", city:"Київ", address:"центр, Київ", lat:50.4470, lng:30.5238, hours:"Уточнюйте на місці",
       reviews:[]},
-    // Львів
-    {id: cryptoId(), name:"Криївка", city:"Львів", lat:49.8397, lng:24.0297,
+    // ---------- Львів ----------
+    {id: cryptoId(), name:"Криївка", city:"Львів", address:"площа Ринок, Львів", lat:49.8397, lng:24.0297, hours:"Щодня: 12:00–24:00",
       reviews:[{author:"Богдан", rating:5, text:"Легендарне місце, обов'язково зайти хоч раз.", ts: Date.now()-1000*60*60*24*30}]},
-    {id: cryptoId(), name:"Копальня кави", city:"Львів", lat:49.8399, lng:24.0303,
+    {id: cryptoId(), name:"Копальня кави", city:"Львів", address:"центр, Львів", lat:49.8399, lng:24.0303, hours:"Уточнюйте на місці",
       reviews:[]},
-    // Одеса
-    {id: cryptoId(), name:"Пивоварня «Трубодур»", city:"Одеса", lat:46.4825, lng:30.7233,
+    // ---------- Одеса ----------
+    {id: cryptoId(), name:"Пивоварня «Трубодур»", city:"Одеса", address:"центр, Одеса", lat:46.4825, lng:30.7233, hours:"Уточнюйте на місці",
       reviews:[{author:"Marine Bar", rating:4, text:"Крафтове пиво власного виробництва, раджу.", ts: Date.now()-1000*60*60*24*5}]},
-    // Харків
-    {id: cryptoId(), name:"Basta Lounge", city:"Харків", lat:49.9935, lng:36.2304,
+    // ---------- Харків ----------
+    {id: cryptoId(), name:"Basta Lounge", city:"Харків", address:"вул. Сумська, Харків", lat:49.9935, lng:36.2304, hours:"Уточнюйте на місці",
       reviews:[{author:"Ірина", rating:4, text:"Гарний лаундж на Сумській.", ts: Date.now()-1000*60*60*24*3}]},
-    // Дніпро
-    {id: cryptoId(), name:"Campus Bar", city:"Дніпро", lat:48.4647, lng:35.0462,
+    // ---------- Дніпро ----------
+    {id: cryptoId(), name:"Campus Bar", city:"Дніпро", address:"центр, Дніпро", lat:48.4647, lng:35.0462, hours:"Уточнюйте на місці",
       reviews:[]}
   ];
   set(LS.places, seed);
@@ -712,7 +736,11 @@ function renderPlacesList(){
     const item = document.createElement("div");
     item.className = "place-item";
     item.innerHTML = `
-      <span class="place-item-name">${escapeHtml(p.name)}${p.city ? ` <span class="place-item-city">· ${escapeHtml(p.city)}</span>` : ""}</span>
+      <div class="place-item-main">
+        <span class="place-item-name">${escapeHtml(p.name)}${p.city ? ` <span class="place-item-city">· ${escapeHtml(p.city)}</span>` : ""}</span>
+        ${p.address ? `<span class="place-item-address">${escapeHtml(p.address)}</span>` : ""}
+        ${p.hours ? `<span class="place-item-hours">🕐 ${escapeHtml(p.hours)}</span>` : ""}
+      </div>
       <span class="place-item-meta">${p.reviews.length} відгук(ів)</span>
     `;
     item.addEventListener("click", ()=>{
@@ -751,6 +779,8 @@ function closePlaceModal(){
 function openPlaceModal(){
   const eyebrow = document.getElementById("placeModalEyebrow");
   const title = document.getElementById("placeModalTitle");
+  const addressEl = document.getElementById("placeModalAddress");
+  const hoursEl = document.getElementById("placeModalHours");
   const newFields = document.getElementById("placeNewFields");
   const reviewAuthorHint = document.getElementById("reviewAuthorHint");
   const me = currentMe();
@@ -763,11 +793,26 @@ function openPlaceModal(){
     title.textContent = place.name;
     newFields.hidden = true;
     document.getElementById("newPlaceName").value = "";
+
+    if(place.address){
+      addressEl.textContent = `📍 ${place.address}`;
+      addressEl.hidden = false;
+    } else {
+      addressEl.hidden = true;
+    }
+    if(place.hours){
+      hoursEl.textContent = `🕐 ${place.hours}`;
+      hoursEl.hidden = false;
+    } else {
+      hoursEl.hidden = true;
+    }
   } else if(pendingNewCoords){
     eyebrow.textContent = "новий заклад";
     title.textContent = "Додати заклад";
     newFields.hidden = false;
     document.getElementById("newPlaceName").value = "";
+    addressEl.hidden = true;
+    hoursEl.hidden = true;
     place = {reviews:[]};
   } else {
     return;
@@ -842,7 +887,7 @@ document.getElementById("reviewForm").addEventListener("submit", e=>{
   } else {
     const name = document.getElementById("newPlaceName").value.trim();
     if(!name){ document.getElementById("newPlaceName").focus(); return; }
-    const newPlace = {id: cryptoId(), name, city:"", lat:pendingNewCoords.lat, lng:pendingNewCoords.lng, reviews:[newReview]};
+    const newPlace = {id: cryptoId(), name, city:"", address:"", hours:"", lat:pendingNewCoords.lat, lng:pendingNewCoords.lng, reviews:[newReview]};
     places.push(newPlace);
     addMarkerForPlace(newPlace);
     activePlaceId = newPlace.id;
