@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>НАЛИВАЙ — знайомства для тих, хто хоче випити не наодинці</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="app-header">
+    <div class="brand"><span class="brand-glow">НАЛИВАЙ</span><span class="beta-pill">бета</span></div>
+    <button class="my-location" id="myLocationBadge">📍 визначити локацію</button>
+  </header>
+
+  <main class="screens">
+
+    <!-- ===================== SWIPE ===================== -->
+    <section id="screen-swipe" class="screen active">
+      <div class="deck-wrap">
+        <div class="deck" id="deck"></div>
+        <p class="deck-empty" id="deckEmpty" hidden>Це всі, хто зараз поруч 🍻<br>Заглянь пізніше — з'являться нові.</p>
+      </div>
+      <div class="swipe-actions">
+        <button id="passBtn" class="round-btn pass-btn" title="Пропустити">✕</button>
+        <button id="likeBtn" class="round-btn like-btn" title="Лайк">
+          <span class="bottle-ico">🍾</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ===================== ЗАКЛАДИ / КАРТА ===================== -->
+    <section id="screen-bars" class="screen">
+      <div class="section-head">
+        <p class="eyebrow">карта міста</p>
+        <h1 class="screen-title">Де наливають</h1>
+        <p class="screen-sub">Заклади, які позначили інші користувачі. Клікни на мапу, щоб додати свій і лишити відгук.</p>
+      </div>
+      <div id="map"></div>
+      <div class="places-list" id="placesList">
+        <h3>Заклади поруч</h3>
+        <div id="placesListItems"></div>
+      </div>
+    </section>
+
+    <!-- ===================== ЧАТИ ===================== -->
+    <section id="screen-chats" class="screen">
+      <div class="section-head">
+        <p class="eyebrow">метчі</p>
+        <h1 class="screen-title">Чати</h1>
+      </div>
+      <div id="chatListView">
+        <div id="chatListItems"></div>
+        <p class="deck-empty" id="chatsEmpty" hidden>Поки що немає метчів.<br>Свайпни когось вправо 🍾</p>
+      </div>
+      <div id="chatThreadView" hidden>
+        <button id="backToChats" class="back-btn">← Усі чати</button>
+        <div class="thread-header" id="threadHeader"></div>
+        <div class="thread-messages" id="threadMessages"></div>
+        <form id="threadForm" class="thread-form">
+          <input type="text" id="threadInput" placeholder="Написати повідомлення…" autocomplete="off" required>
+          <button type="submit" class="send-btn">➤</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===================== ПРОФІЛЬ ===================== -->
+    <section id="screen-profile" class="screen">
+      <div class="section-head">
+        <p class="eyebrow">твоя анкета</p>
+        <h1 class="screen-title">Профіль</h1>
+      </div>
+      <form id="profileForm" class="profile-form">
+        <div class="avatar-row">
+          <div class="avatar-circle" id="avatarPreview">🙂</div>
+          <label class="online-toggle">
+            <input type="checkbox" id="onlineToggle" checked>
+            <span>Я зараз онлайн</span>
+          </label>
+        </div>
+        <label>Ім'я або назва компанії
+          <input type="text" name="name" id="pName" required placeholder="Твоє ім'я">
+        </label>
+        <div class="form-row">
+          <label>Тип
+            <select name="type" id="pType">
+              <option value="person">Людина</option>
+              <option value="company">Компанія</option>
+            </select>
+          </label>
+          <label>Локація
+            <input type="text" name="geo" id="pGeo" required placeholder="Черкаси, центр">
+          </label>
+        </div>
+        <label>🍺 Що п'ю
+          <input type="text" name="drinks" id="pDrinks" placeholder="Джин-тонік, крафтове пиво">
+        </label>
+        <label>🍴 Що їм
+          <input type="text" name="food" id="pFood" placeholder="Суші, бургери">
+        </label>
+        <label>📍 Улюблені місця
+          <input type="text" name="places" id="pPlaces" placeholder="Бар «Хвиля»">
+        </label>
+        <label>Про себе
+          <textarea name="bio" id="pBio" rows="2" placeholder="Пара речень для контексту"></textarea>
+        </label>
+        <button type="submit" class="btn btn-primary btn-full">Зберегти профіль</button>
+        <p class="save-note" id="saveNote" hidden>Збережено ✓</p>
+      </form>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <button data-tab="bars" class="nav-btn">
+      <span class="nav-ico">🍸</span><span class="nav-label">Заклади</span>
+    </button>
+    <button data-tab="swipe" class="nav-btn nav-btn-main active">
+      <span class="nav-ico-main">🍾</span>
+    </button>
+    <button data-tab="chats" class="nav-btn">
+      <span class="nav-ico">💬</span><span class="nav-label">Чати</span>
+      <span class="nav-dot" id="chatDot" hidden></span>
+    </button>
+    <button data-tab="profile" class="nav-btn">
+      <span class="nav-ico">👤</span><span class="nav-label">Профіль</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- ===================== METЧ MODAL ===================== -->
+<div class="modal-overlay match-overlay" id="matchOverlay" hidden>
+  <div class="match-card">
+    <p class="match-eyebrow">🔥 Це метч!</p>
+    <h2 id="matchName">Ім'я</h2>
+    <p class="match-sub">Тепер можна написати одне одному</p>
+    <div class="match-actions">
+      <button class="btn btn-ghost" id="matchKeepSwiping">Свайпати далі</button>
+      <button class="btn btn-primary" id="matchGoToChat">Написати</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== МОДАЛКА ЗАКЛАДУ ===================== -->
+<div class="modal-overlay" id="placeModalOverlay" hidden>
+  <div class="modal">
+    <button class="modal-close" data-close="place">×</button>
+    <p class="eyebrow" id="placeModalEyebrow">заклад</p>
+    <h2 id="placeModalTitle">Назва закладу</h2>
+    <div id="placeNewFields">
+      <label>Назва закладу
+        <input type="text" id="newPlaceName" placeholder="Бар «Хвиля»">
+      </label>
+    </div>
+    <div class="reviews-list" id="reviewsList"></div>
+    <form id="reviewForm">
+      <label>Твоє ім'я
+        <input type="text" id="reviewAuthor" required placeholder="Як тебе звати">
+      </label>
+      <label>Відгук
+        <textarea id="reviewText" rows="2" required placeholder="Що сподобалось"></textarea>
+      </label>
+      <label>Оцінка
+        <select id="reviewRating">
+          <option value="5">★★★★★</option>
+          <option value="4">★★★★☆</option>
+          <option value="3">★★★☆☆</option>
+          <option value="2">★★☆☆☆</option>
+          <option value="1">★☆☆☆☆</option>
+        </select>
+      </label>
+      <button type="submit" class="btn btn-primary btn-full">Залишити відгук</button>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
