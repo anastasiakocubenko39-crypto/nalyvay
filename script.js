@@ -635,29 +635,19 @@ function renderPlacesList(){
 
 /* ---------- модалка закладу ---------- */
 
-const placeModalOverlay = document.getElementById("placeModalOverlay");
-const placeModalTitle = document.getElementById("placeModalTitle");
-const placeModalEyebrow = document.getElementById("placeModalEyebrow");
-const placeNewFields = document.getElementById("placeNewFields");
-const newPlaceNameInput = document.getElementById("newPlaceName");
-const reviewsList = document.getElementById("reviewsList");
-
-function openPlaceModal(){
-  placeModalOverlay.hidden = false;
-  if(activePlaceId){
-    const place = places.find(p=>p.id === activePlaceId);
-    placeModalEyebrow.textContent = "заклад";
-    placeModalTitle.textContent = place.name;
-    placeNewFields.hidden = true;
-    renderReviews(place);
-  } else {
-    placeModalEyebrow.textContent = "новий заклад";
-    placeModalTitle.textContent = "Додай назву та перший відгук";
-    placeNewFields.hidden = false;
-    newPlaceNameInput.value = "";
-    reviewsList.innerHTML = `<p class="no-reviews">Тут з'являться відгуки після першого запису.</p>`;
-  }
-}
+// Закриття модалки при натисканні на затемнену область
+[
+  placeModalOverlay,
+  filterModalOverlay,
+  previewModalOverlay,
+  matchOverlay
+].forEach(overlay => {
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.hidden = true;
+    }
+  });
+});
 
 function closePlaceModal(){
   placeModalOverlay.hidden = true;
