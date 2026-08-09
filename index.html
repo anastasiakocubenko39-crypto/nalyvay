@@ -12,11 +12,86 @@
 </head>
 <body>
 
-<div class="app">
+<!-- ===================== РЕЄСТРАЦІЯ (обов'язкова, показується перший раз) ===================== -->
+<div class="modal-overlay reg-overlay" id="regOverlay">
+  <div class="modal reg-card">
+    <p class="eyebrow">крок 1 з 1</p>
+    <h2>Створи анкету</h2>
+    <p class="reg-sub">Це займе хвилину. Без анкети не можна свайпати й лишати відгуки.</p>
+    <form id="regForm">
+      <label>Ім'я
+        <input type="text" id="regName" required placeholder="Як тебе звати">
+      </label>
+      <div class="form-row">
+        <label>Вік
+          <input type="number" id="regAge" min="18" max="99" required placeholder="25">
+        </label>
+        <label>Тип анкети
+          <select id="regType">
+            <option value="person">Людина</option>
+            <option value="company">Компанія</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Стать
+          <select id="regGender">
+            <option value="жінка">Жіноча</option>
+            <option value="чоловік">Чоловіча</option>
+            <option value="інша">Інша</option>
+          </select>
+        </label>
+        <label>Мова спілкування
+          <select id="regLanguage">
+            <option value="Українська">Українська</option>
+            <option value="English">English</option>
+            <option value="Інша">Інша</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Тип населеного пункту
+          <select id="regSettlementType">
+            <option value="Місто">Місто</option>
+            <option value="СМТ">СМТ</option>
+            <option value="Село">Село</option>
+          </select>
+        </label>
+        <label>Де зараз
+          <input type="text" id="regSettlementName" required placeholder="Черкаси">
+        </label>
+      </div>
+      <label>🍺 Що любиш пити
+        <input type="text" id="regDrinks" required placeholder="Джин-тонік, крафтове пиво">
+      </label>
+      <label>🍴 Що любиш їсти
+        <input type="text" id="regFood" placeholder="Суші, бургери">
+      </label>
+      <label>⭐ Улюблений заклад
+        <input type="text" id="regFavPlace" placeholder="Бар «Хвиля»">
+      </label>
+      <label>🚶 Куди любиш ходити / хобі
+        <input type="text" id="regHobbies" placeholder="Бари з живою музикою, настолки, кава вранці">
+      </label>
+      <label>Фото профілю
+        <input type="file" accept="image/*" id="regPhoto">
+      </label>
+      <label>Про себе
+        <textarea id="regBio" rows="2" placeholder="Пара речень для контексту"></textarea>
+      </label>
+      <button type="submit" class="btn btn-primary btn-full">Почати знайомитись</button>
+    </form>
+  </div>
+</div>
+
+<div class="app" id="appRoot">
 
   <header class="app-header">
     <div class="brand"><span class="brand-glow">НАЛИВАЙ</span><span class="beta-pill">бета</span></div>
-    <button class="my-location" id="myLocationBadge">📍 визначити локацію</button>
+    <div class="header-actions">
+      <button class="filter-btn" id="filterBtn">🔍 фільтри</button>
+      <button class="my-location" id="myLocationBadge">📍 визначити локацію</button>
+    </div>
   </header>
 
   <main class="screens">
@@ -25,7 +100,10 @@
     <section id="screen-swipe" class="screen active">
       <div class="deck-wrap">
         <div class="deck" id="deck"></div>
-        <p class="deck-empty" id="deckEmpty" hidden>Це всі, хто зараз поруч 🍻<br>Заглянь пізніше — з'являться нові.</p>
+        <div class="deck-empty" id="deckEmpty" hidden>
+          <p id="deckEmptyText">Це всі, хто зараз поруч 🍻<br>Заглянь пізніше — з'являться нові.</p>
+          <button type="button" class="btn btn-ghost" id="showPassedBtn" hidden>Показати пропущених ще раз</button>
+        </div>
       </div>
       <div class="swipe-actions">
         <button id="passBtn" class="round-btn pass-btn" title="Пропустити">✕</button>
@@ -78,38 +156,90 @@
       </div>
       <form id="profileForm" class="profile-form">
         <div class="avatar-row">
-          <div class="avatar-circle" id="avatarPreview">🙂</div>
+          <div class="avatar-actions">
+            <div class="avatar-circle" id="avatarPreview">🙂</div>
+            <label class="avatar-upload-label" for="pPhoto">Змінити фото</label>
+            <input type="file" accept="image/*" id="pPhoto" class="photo-input">
+          </div>
           <label class="online-toggle">
             <input type="checkbox" id="onlineToggle" checked>
             <span>Я зараз онлайн</span>
           </label>
         </div>
+
+        <div class="verify-box" id="verifyBox">
+          <div class="verify-status">
+            <span class="verify-badge" id="verifyBadgeText">Профіль не верифікований</span>
+          </div>
+          <div class="verify-challenge" id="verifyChallenge">
+            <p class="screen-sub" style="margin:0 0 10px;">Розв'яжи приклад, щоб підтвердити, що анкету веде людина</p>
+            <p class="verify-question" id="verifyQuestion">3 + 5 = ?</p>
+            <div class="verify-row">
+              <input type="number" id="verifyAnswer" placeholder="Відповідь">
+              <button type="button" class="btn btn-primary" id="verifyCheckBtn">Перевірити</button>
+            </div>
+            <p class="verify-msg" id="verifyMsg" hidden></p>
+          </div>
+        </div>
+
         <label>Ім'я або назва компанії
-          <input type="text" name="name" id="pName" required placeholder="Твоє ім'я">
+          <input type="text" id="pName" required placeholder="Твоє ім'я">
         </label>
         <div class="form-row">
-          <label>Тип
-            <select name="type" id="pType">
+          <label>Вік
+            <input type="number" id="pAge" min="18" max="99" required placeholder="25">
+          </label>
+          <label>Тип анкети
+            <select id="pType">
               <option value="person">Людина</option>
               <option value="company">Компанія</option>
             </select>
           </label>
-          <label>Локація
-            <input type="text" name="geo" id="pGeo" required placeholder="Черкаси, центр">
+        </div>
+        <div class="form-row">
+          <label>Стать
+            <select id="pGender">
+              <option value="жінка">Жіноча</option>
+              <option value="чоловік">Чоловіча</option>
+              <option value="інша">Інша</option>
+            </select>
+          </label>
+          <label>Мова спілкування
+            <select id="pLanguage">
+              <option value="Українська">Українська</option>
+              <option value="English">English</option>
+              <option value="Інша">Інша</option>
+            </select>
           </label>
         </div>
-        <label>🍺 Що п'ю
-          <input type="text" name="drinks" id="pDrinks" placeholder="Джин-тонік, крафтове пиво">
+        <div class="form-row">
+          <label>Тип населеного пункту
+            <select id="pSettlementType">
+              <option value="Місто">Місто</option>
+              <option value="СМТ">СМТ</option>
+              <option value="Село">Село</option>
+            </select>
+          </label>
+          <label>Де зараз
+            <input type="text" id="pSettlementName" required placeholder="Черкаси">
+          </label>
+        </div>
+        <label>🍺 Що люблю пити
+          <input type="text" id="pDrinks" placeholder="Джин-тонік, крафтове пиво">
         </label>
-        <label>🍴 Що їм
-          <input type="text" name="food" id="pFood" placeholder="Суші, бургери">
+        <label>🍴 Що люблю їсти
+          <input type="text" id="pFood" placeholder="Суші, бургери">
         </label>
-        <label>📍 Улюблені місця
-          <input type="text" name="places" id="pPlaces" placeholder="Бар «Хвиля»">
+        <label>⭐ Улюблений заклад
+          <input type="text" id="pFavPlace" placeholder="Бар «Хвиля»">
+        </label>
+        <label>🚶 Куди люблю ходити / хобі
+          <input type="text" id="pHobbies" placeholder="Бари з живою музикою, настолки">
         </label>
         <label>Про себе
-          <textarea name="bio" id="pBio" rows="2" placeholder="Пара речень для контексту"></textarea>
+          <textarea id="pBio" rows="2" placeholder="Пара речень для контексту"></textarea>
         </label>
+        <button type="button" class="btn btn-ghost btn-full preview-trigger" id="previewBtn">👁 Прев'ю анкети — так тебе бачать інші</button>
         <button type="submit" class="btn btn-primary btn-full">Зберегти профіль</button>
         <p class="save-note" id="saveNote" hidden>Збережено ✓</p>
       </form>
@@ -135,7 +265,7 @@
 
 </div>
 
-<!-- ===================== METЧ MODAL ===================== -->
+<!-- ===================== МЕТЧ MODAL ===================== -->
 <div class="modal-overlay match-overlay" id="matchOverlay" hidden>
   <div class="match-card">
     <p class="match-eyebrow">🔥 Це метч!</p>
@@ -151,7 +281,7 @@
 <!-- ===================== МОДАЛКА ЗАКЛАДУ ===================== -->
 <div class="modal-overlay" id="placeModalOverlay" hidden>
   <div class="modal">
-    <button class="modal-close" data-close="place">×</button>
+    <button type="button" class="modal-close" id="placeModalCloseBtn">×</button>
     <p class="eyebrow" id="placeModalEyebrow">заклад</p>
     <h2 id="placeModalTitle">Назва закладу</h2>
     <div id="placeNewFields">
@@ -178,6 +308,78 @@
       </label>
       <button type="submit" class="btn btn-primary btn-full">Залишити відгук</button>
     </form>
+  </div>
+</div>
+
+<!-- ===================== ФІЛЬТРИ / РОЗШИРЕНИЙ ПОШУК ===================== -->
+<div class="modal-overlay" id="filterModalOverlay" hidden>
+  <div class="modal">
+    <button type="button" class="modal-close" id="filterModalCloseBtn">×</button>
+    <p class="eyebrow">розширений пошук</p>
+    <h2>Фільтри</h2>
+    <form id="filterForm">
+      <p class="filter-group-title">Кого шукаєш</p>
+      <div class="chip-row" data-group="type">
+        <span class="chip active" data-value="all">Усі</span>
+        <span class="chip" data-value="person">Люди</span>
+        <span class="chip" data-value="company">Заклади</span>
+      </div>
+
+      <p class="filter-group-title">Стать</p>
+      <div class="chip-row" data-group="gender">
+        <span class="chip active" data-value="all">Усі</span>
+        <span class="chip" data-value="жінка">Жіноча</span>
+        <span class="chip" data-value="чоловік">Чоловіча</span>
+        <span class="chip" data-value="інша">Інша</span>
+      </div>
+
+      <p class="filter-group-title">Мова спілкування</p>
+      <div class="chip-row" data-group="language">
+        <span class="chip active" data-value="all">Усі</span>
+        <span class="chip" data-value="Українська">Українська</span>
+        <span class="chip" data-value="English">English</span>
+        <span class="chip" data-value="Інша">Інша</span>
+      </div>
+
+      <p class="filter-group-title">Вік</p>
+      <div class="form-row">
+        <label>Від
+          <input type="number" id="fMinAge" min="18" max="99" placeholder="18">
+        </label>
+        <label>До
+          <input type="number" id="fMaxAge" min="18" max="99" placeholder="99">
+        </label>
+      </div>
+
+      <p class="filter-group-title">Деталі</p>
+      <label>🍺 Напій
+        <input type="text" id="fDrinks" placeholder="Наприклад, віскі">
+      </label>
+      <label>🍴 Їжа
+        <input type="text" id="fFood" placeholder="Наприклад, суші">
+      </label>
+      <label>⭐ Улюблений заклад
+        <input type="text" id="fPlace" placeholder="Наприклад, Хвиля">
+      </label>
+      <label>📍 Місто / район
+        <input type="text" id="fSettlement" placeholder="Наприклад, центр">
+      </label>
+
+      <div class="filter-actions">
+        <button type="button" class="btn btn-ghost" id="filterResetBtn">Скинути</button>
+        <button type="submit" class="btn btn-primary">Показати</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== ПРЕВ'Ю АНКЕТИ ===================== -->
+<div class="modal-overlay" id="previewModalOverlay" hidden>
+  <div class="modal">
+    <button type="button" class="modal-close" id="previewModalCloseBtn">×</button>
+    <p class="eyebrow">прев'ю</p>
+    <h2>Так тебе бачать інші</h2>
+    <div class="preview-card-wrap" id="previewCardWrap"></div>
   </div>
 </div>
 
