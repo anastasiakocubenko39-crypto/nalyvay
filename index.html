@@ -12,9 +12,24 @@
 </head>
 <body>
 
+<!-- ===================== ІНТРО-ВІДЕО (на весь екран, ~6-7 сек) ===================== -->
+<div class="intro-overlay" id="introOverlay">
+  <video id="introVideo" autoplay muted playsinline preload="auto">
+    <source src="intro.mp4" type="video/mp4">
+  </video>
+  <div class="intro-logo-fallback" id="introLogoFallback" hidden>
+    <img src="logo.png" alt="НАЛИВАЙ" onerror="this.style.display='none'; this.parentElement.classList.add('text-only')">
+    <span class="intro-fallback-text">НАЛИВАЙ</span>
+  </div>
+  <button type="button" class="intro-skip" id="introSkipBtn">Пропустити ⏭</button>
+</div>
+
 <!-- ===================== РЕЄСТРАЦІЯ (обов'язкова, показується перший раз) ===================== -->
 <div class="modal-overlay reg-overlay" id="regOverlay">
   <div class="modal reg-card">
+    <div class="reg-logo">
+      <img src="logo.png" alt="НАЛИВАЙ" onerror="this.style.display='none'">
+    </div>
     <p class="eyebrow">крок 1 з 1</p>
     <h2>Створи анкету</h2>
     <p class="reg-sub">Це займе хвилину. Без анкети не можна свайпати й лишати відгуки.</p>
@@ -61,6 +76,15 @@
           <input type="text" id="regSettlementName" required placeholder="Черкаси">
         </label>
       </div>
+      <div class="form-row">
+        <label>Email
+          <input type="email" id="regEmail" required placeholder="pошта@приклад.com">
+        </label>
+        <label>Пароль
+          <input type="password" id="regPassword" required minlength="6" placeholder="мінімум 6 символів">
+        </label>
+      </div>
+      <p class="field-hint">Пароль зберігається на пристрої лише у хешованому вигляді (SHA-256), його неможливо прочитати з локального сховища.</p>
       <label>🍺 Що любиш пити
         <input type="text" id="regDrinks" required placeholder="Джин-тонік, крафтове пиво">
       </label>
@@ -87,7 +111,11 @@
 <div class="app" id="appRoot">
 
   <header class="app-header">
-    <div class="brand"><span class="brand-glow">НАЛИВАЙ</span><span class="beta-pill">бета</span></div>
+    <div class="brand">
+      <img src="logo.png" alt="НАЛИВАЙ" class="brand-logo" id="brandLogo" onerror="this.style.display='none'; document.getElementById('brandTextFallback').hidden=false;">
+      <span class="brand-glow" id="brandTextFallback" hidden>НАЛИВАЙ</span>
+      <span class="beta-pill">бета</span>
+    </div>
     <div class="header-actions">
       <button class="filter-btn" id="filterBtn">🔍 фільтри</button>
       <button class="my-location" id="myLocationBadge">📍 визначити локацію</button>
@@ -118,7 +146,7 @@
       <div class="section-head">
         <p class="eyebrow">карта міста</p>
         <h1 class="screen-title">Де наливають</h1>
-        <p class="screen-sub">Заклади, які позначили інші користувачі. Клікни на мапу, щоб додати свій і лишити відгук.</p>
+        <p class="screen-sub">Заклади по всій Україні, які позначили інші користувачі. Клікни на мапу, щоб додати свій і лишити відгук.</p>
       </div>
       <div id="map"></div>
       <div class="places-list" id="placesList">
@@ -224,6 +252,15 @@
             <input type="text" id="pSettlementName" required placeholder="Черкаси">
           </label>
         </div>
+        <div class="form-row">
+          <label>Email
+            <input type="email" id="pEmail" placeholder="pошта@приклад.com">
+          </label>
+          <label>Новий пароль
+            <input type="password" id="pPassword" minlength="6" placeholder="залиш порожнім, щоб не міняти">
+          </label>
+        </div>
+        <p class="field-hint">Пароль ніколи не зберігається у відкритому вигляді — лише його хеш (SHA-256) на цьому пристрої.</p>
         <label>🍺 Що люблю пити
           <input type="text" id="pDrinks" placeholder="Джин-тонік, крафтове пиво">
         </label>
@@ -289,11 +326,21 @@
         <input type="text" id="newPlaceName" placeholder="Бар «Хвиля»">
       </label>
     </div>
-    <div class="reviews-list" id="reviewsList"></div>
-    <form id="reviewForm">
-      <label>Твоє ім'я
-        <input type="text" id="reviewAuthor" required placeholder="Як тебе звати">
+
+    <div class="reviews-head">
+      <span class="reviews-count" id="reviewsCount">0 відгуків</span>
+      <label class="reviews-sort-label">Сортувати
+        <select id="reviewSort">
+          <option value="new">Найновіші</option>
+          <option value="high">Найвищий рейтинг</option>
+          <option value="low">Найнижчий рейтинг</option>
+        </select>
       </label>
+    </div>
+    <div class="reviews-list" id="reviewsList"></div>
+
+    <form id="reviewForm">
+      <p class="field-hint" id="reviewAuthorHint">Відгук залишається від імені твоєї анкети — так ми показуємо лише реальні відгуки зареєстрованих користувачів.</p>
       <label>Відгук
         <textarea id="reviewText" rows="2" required placeholder="Що сподобалось"></textarea>
       </label>
