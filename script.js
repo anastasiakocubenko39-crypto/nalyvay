@@ -1,10 +1,10 @@
 /* ===================== СХОВИЩЕ ===================== */
 
 const LS = {
-  me: "nalyvay_me",
-  swipes: "nalyvay_swipes",     // {profileId: 'like'|'pass'}
-  matches: "nalyvay_matches",   // [profileId]
-  chats: "nalyvay_chats",       // {profileId: [{from:'me'|'them', text}]}
+  me: "nalyvay_me_v2",
+  swipes: "nalyvay_swipes",
+  matches: "nalyvay_matches",
+  chats: "nalyvay_chats",
   places: "nalyvay_places_v2"
 };
 
@@ -13,21 +13,37 @@ function get(key, fallback){ const raw = localStorage.getItem(key); return raw ?
 function set(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
 function escapeHtml(str){ const d = document.createElement("div"); d.textContent = str ?? ""; return d.innerHTML; }
 
-/* ===================== СІД-ДАНІ ===================== */
+/* Читає файл фото як base64 data URL. Повертає null, якщо файл не обрано. */
+function readPhotoFile(inputEl){
+  return new Promise(resolve=>{
+    const file = inputEl && inputEl.files && inputEl.files[0];
+    if(!file){ resolve(null); return; }
+    if(file.size > 4 * 1024 * 1024){
+      alert("Фото завелике (максимум 4 МБ). Обери менший файл.");
+      resolve(null); return;
+    }
+    const reader = new FileReader();
+    reader.onload = ()=> resolve(reader.result);
+    reader.onerror = ()=> resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ===================== СІД-ДАНІ ДЛЯ СВАЙПУ ===================== */
 
 const SEED_PROFILES = [
-  {id:"seed-1", name:"Оля", type:"person", geo:"Черкаси, центр · 800 м", online:true, avatar:"💃",
-    drinks:"Джин-тонік", food:"Суші", places:"Бар «Хвиля»", bio:"Люблю тихі бари з хорошою музикою."},
-  {id:"seed-2", name:"Максим", type:"person", geo:"Черкаси, лівий берег · 1.2 км", online:true, avatar:"🕺",
-    drinks:"Віскі, темне пиво", food:"Стейк, бургери", places:"Стейк-хаус на Гоголя", bio:"Настолки і келих віскі — ідеальний вечір."},
-  {id:"seed-3", name:"«Три бариста»", type:"company", geo:"Черкаси, Митниця · 2.1 км", online:false, avatar:"☕",
-    drinks:"Спешелті кава, вино ввечері", food:"Круасани, брускети", places:"Своя кав'ярня", bio:"Команда кав'ярні шукає компанію після зміни."},
-  {id:"seed-4", name:"Настя", type:"person", geo:"Черкаси, набережна · 600 м", online:true, avatar:"🙋‍♀️",
-    drinks:"Просекко, сидр", food:"Тапас", places:"Wine & Tapas Bar", bio:"Обожнюю набережну ввечері та келих просекко."},
-  {id:"seed-5", name:"Craft Room", type:"company", geo:"Черкаси, центр · 950 м", online:true, avatar:"🍻",
-    drinks:"20 сортів крафтового пива", food:"Снеки до пива", places:"Своя пивна", bio:"Бар шукає компанії на дегустації нових сортів."},
-  {id:"seed-6", name:"Дмитро", type:"person", geo:"Черкаси, Соснівка · 3 км", online:false, avatar:"🧔",
-    drinks:"Ром, мохіто", food:"Мексиканська кухня", places:"Cantina Bar", bio:"Люблю тропічну музику і хороший ром."}
+  {id:"seed-1", name:"Оля", type:"person", gender:"жінка", language:"Українська", geo:"Черкаси, центр · 800 м", online:true, avatar:"💃", verified:true,
+    drinks:"Джин-тонік", food:"Суші", favoritePlace:"Бар «Хвиля»", bio:"Люблю тихі бари з хорошою музикою. 24 роки."},
+  {id:"seed-2", name:"Максим", type:"person", gender:"чоловік", language:"Українська", geo:"Черкаси, лівий берег · 1.2 км", online:true, avatar:"🕺", verified:false,
+    drinks:"Віскі, темне пиво", food:"Стейк, бургери", favoritePlace:"Craft Room", bio:"Настолки і келих віскі — ідеальний вечір. 29 років."},
+  {id:"seed-3", name:"«Три бариста»", type:"company", gender:null, language:"Українська", geo:"Черкаси, Митниця · 2.1 км", online:false, avatar:"☕", verified:true,
+    drinks:"Спешелті кава, вино ввечері", food:"Круасани, брускети", favoritePlace:"—", bio:"Команда кав'ярні шукає компанію після зміни."},
+  {id:"seed-4", name:"Настя", type:"person", gender:"жінка", language:"Українська", geo:"Черкаси, набережна · 600 м", online:true, avatar:"🙋‍♀️", verified:false,
+    drinks:"Просекко, сидр", food:"Тапас", favoritePlace:"Набережна, літні тераси", bio:"Обожнюю набережну ввечері та келих просекко. 22 роки."},
+  {id:"seed-5", name:"Craft Room", type:"company", gender:null, language:"Українська", geo:"Черкаси, центр · 950 м", online:true, avatar:"🍻", verified:true,
+    drinks:"20 сортів крафтового пива", food:"Снеки до пива", favoritePlace:"—", bio:"Бар шукає компанії на дегустації нових сортів."},
+  {id:"seed-6", name:"Дмитро", type:"person", gender:"чоловік", language:"English", geo:"Черкаси, Соснівка · 3 км", online:false, avatar:"🧔", verified:false,
+    drinks:"Ром, мохіто", food:"Мексиканська кухня", favoritePlace:"Tiki Bar", bio:"Люблю тропічну музику і хороший ром. 31 рік."}
 ];
 
 const AUTO_REPLIES = [
@@ -37,6 +53,143 @@ const AUTO_REPLIES = [
   "Давай завтра ввечері?",
   "Го по пиву в п'ятницю 🍻"
 ];
+
+/* ===================== РЕЄСТРАЦІЯ ===================== */
+
+const regOverlay = document.getElementById("regOverlay");
+const regForm = document.getElementById("regForm");
+
+function currentMe(){ return get(LS.me, null); }
+
+function showApp(){
+  regOverlay.hidden = true;
+  fillProfileFormFromMe();
+}
+
+function renderAvatarPreview(me){
+  const el = document.getElementById("avatarPreview");
+  if(me && me.photo){
+    el.innerHTML = `<img src="${me.photo}" alt="Фото профілю">`;
+  } else {
+    el.textContent = (me && me.avatar) || "🙂";
+  }
+}
+
+function randInt(min, max){ return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+/* Генерує простий приклад: +, -, *, / з цілими невід'ємними результатами */
+function generateMathChallenge(){
+  const ops = ["+", "-", "×", "÷"];
+  const op = ops[randInt(0, 3)];
+  let a, b, answer;
+  switch(op){
+    case "+": a = randInt(1, 20); b = randInt(1, 20); answer = a + b; break;
+    case "-": a = randInt(5, 20); b = randInt(1, a); answer = a - b; break;
+    case "×": a = randInt(2, 9); b = randInt(2, 9); answer = a * b; break;
+    case "÷": b = randInt(2, 9); answer = randInt(2, 9); a = b * answer; break;
+  }
+  return {a, b, op, answer};
+}
+
+let verifyChallenge = null;
+
+function newVerifyChallenge(){
+  verifyChallenge = generateMathChallenge();
+  document.getElementById("verifyQuestion").textContent = `${verifyChallenge.a} ${verifyChallenge.op} ${verifyChallenge.b} = ?`;
+  document.getElementById("verifyAnswer").value = "";
+  document.getElementById("verifyMsg").hidden = true;
+}
+
+function refreshVerifyUI(){
+  const me = currentMe() || {};
+  const badge = document.getElementById("verifyBadgeText");
+  const challengeBox = document.getElementById("verifyChallenge");
+  if(me.verified){
+    badge.innerHTML = "✓ Профіль верифіковано";
+    badge.classList.add("verified");
+    challengeBox.hidden = true;
+  } else {
+    badge.textContent = "Профіль не верифікований";
+    badge.classList.remove("verified");
+    challengeBox.hidden = false;
+    newVerifyChallenge();
+  }
+}
+
+document.getElementById("verifyCheckBtn").addEventListener("click", ()=>{
+  const raw = document.getElementById("verifyAnswer").value.trim();
+  const msg = document.getElementById("verifyMsg");
+  if(raw === ""){
+    msg.textContent = "Введи відповідь на приклад.";
+    msg.className = "verify-msg verify-msg-err";
+    msg.hidden = false;
+    return;
+  }
+  const val = Number(raw);
+  if(val === verifyChallenge.answer){
+    const me = currentMe() || {};
+    me.verified = true;
+    set(LS.me, me);
+    msg.textContent = "Готово! Профіль верифіковано ✓";
+    msg.className = "verify-msg verify-msg-ok";
+    msg.hidden = false;
+    setTimeout(()=> refreshVerifyUI(), 900);
+  } else {
+    msg.textContent = "Неправильно, спробуй новий приклад нижче.";
+    msg.className = "verify-msg verify-msg-err";
+    msg.hidden = false;
+    newVerifyChallenge();
+  }
+});
+
+function fillProfileFormFromMe(){
+  const me = currentMe();
+  if(!me) return;
+  document.getElementById("pName").value = me.name || "";
+  document.getElementById("pAge").value = me.age || "";
+  document.getElementById("pType").value = me.type || "person";
+  document.getElementById("pGender").value = me.gender || "жінка";
+  document.getElementById("pLanguage").value = me.language || "Українська";
+  document.getElementById("pSettlementType").value = me.settlementType || "Місто";
+  document.getElementById("pSettlementName").value = me.settlementName || "";
+  document.getElementById("pDrinks").value = me.drinks || "";
+  document.getElementById("pFood").value = me.food || "";
+  document.getElementById("pFavPlace").value = me.favoritePlace || "";
+  document.getElementById("pHobbies").value = me.hobbies || "";
+  document.getElementById("pBio").value = me.bio || "";
+  document.getElementById("onlineToggle").checked = me.online !== false;
+  renderAvatarPreview(me);
+  refreshVerifyUI();
+}
+
+regForm.addEventListener("submit", async e=>{
+  e.preventDefault();
+  const photo = await readPhotoFile(document.getElementById("regPhoto"));
+  const me = {
+    name: document.getElementById("regName").value.trim(),
+    age: Number(document.getElementById("regAge").value),
+    type: document.getElementById("regType").value,
+    gender: document.getElementById("regGender").value,
+    language: document.getElementById("regLanguage").value,
+    settlementType: document.getElementById("regSettlementType").value,
+    settlementName: document.getElementById("regSettlementName").value.trim(),
+    drinks: document.getElementById("regDrinks").value.trim(),
+    food: document.getElementById("regFood").value.trim(),
+    favoritePlace: document.getElementById("regFavPlace").value.trim(),
+    hobbies: document.getElementById("regHobbies").value.trim(),
+    bio: document.getElementById("regBio").value.trim(),
+    online: true,
+    avatar: "🙂",
+    photo: photo || null,
+    verified: false
+  };
+  set(LS.me, me);
+  showApp();
+});
+
+if(currentMe()){
+  showApp();
+} // інакше regOverlay лишається видимою (за замовчуванням hidden атрибута немає)
 
 /* ===================== НАВІГАЦІЯ ===================== */
 
@@ -58,19 +211,116 @@ navBtns.forEach(btn=>{
   });
 });
 
+/* ===================== РОЗШИРЕНИЙ ПОШУК / ФІЛЬТРИ ===================== */
+
+let filters = {
+  type:"all", gender:"all", language:"all",
+  minAge:"", maxAge:"", drinks:"", food:"", place:"", settlement:""
+};
+
+function matchesFilters(p){
+  if(filters.type !== "all" && p.type !== filters.type) return false;
+  if(filters.gender !== "all"){
+    if(!p.gender || p.gender !== filters.gender) return false;
+  }
+  if(filters.language !== "all" && (p.language || "") !== filters.language) return false;
+  if(filters.minAge && p.age < Number(filters.minAge)) return false;
+  if(filters.maxAge && p.age > Number(filters.maxAge)) return false;
+  if(filters.drinks && !(p.drinks || "").toLowerCase().includes(filters.drinks.toLowerCase())) return false;
+  if(filters.food && !(p.food || "").toLowerCase().includes(filters.food.toLowerCase())) return false;
+  if(filters.place && !(p.favoritePlace || "").toLowerCase().includes(filters.place.toLowerCase())) return false;
+  if(filters.settlement && !(p.geo || "").toLowerCase().includes(filters.settlement.toLowerCase())) return false;
+  return true;
+}
+
+function hasActiveFilters(){
+  return filters.type !== "all" || filters.gender !== "all" || filters.language !== "all" ||
+    filters.minAge || filters.maxAge || filters.drinks || filters.food || filters.place || filters.settlement;
+}
+
+function updateFilterBtnState(){
+  document.getElementById("filterBtn").classList.toggle("active-filters", hasActiveFilters());
+}
+
+const filterModalOverlay = document.getElementById("filterModalOverlay");
+document.getElementById("filterBtn").addEventListener("click", ()=> filterModalOverlay.hidden = false);
+document.getElementById("filterModalCloseBtn").addEventListener("click", ()=> filterModalOverlay.hidden = true);
+filterModalOverlay.addEventListener("click", e=>{ if(e.target === filterModalOverlay) filterModalOverlay.hidden = true; });
+document.addEventListener("keydown", e=>{
+  if(e.key === "Escape" && !filterModalOverlay.hidden) filterModalOverlay.hidden = true;
+});
+
+document.querySelectorAll(".chip-row").forEach(row=>{
+  row.addEventListener("click", e=>{
+    const chip = e.target.closest(".chip");
+    if(!chip) return;
+    const group = row.dataset.group;
+    row.querySelectorAll(".chip").forEach(c=> c.classList.remove("active"));
+    chip.classList.add("active");
+    filters[group] = chip.dataset.value;
+  });
+});
+
+document.getElementById("filterForm").addEventListener("submit", e=>{
+  e.preventDefault();
+  filters.minAge = document.getElementById("fMinAge").value;
+  filters.maxAge = document.getElementById("fMaxAge").value;
+  filters.drinks = document.getElementById("fDrinks").value.trim();
+  filters.food = document.getElementById("fFood").value.trim();
+  filters.place = document.getElementById("fPlace").value.trim();
+  filters.settlement = document.getElementById("fSettlement").value.trim();
+  filterModalOverlay.hidden = true;
+  updateFilterBtnState();
+  rebuildQueue();
+});
+
+document.getElementById("filterResetBtn").addEventListener("click", ()=>{
+  filters = {type:"all", gender:"all", language:"all", minAge:"", maxAge:"", drinks:"", food:"", place:"", settlement:""};
+  document.querySelectorAll(".chip-row").forEach(row=>{
+    row.querySelectorAll(".chip").forEach(c=> c.classList.toggle("active", c.dataset.value === "all"));
+  });
+  document.getElementById("fMinAge").value = "";
+  document.getElementById("fMaxAge").value = "";
+  document.getElementById("fDrinks").value = "";
+  document.getElementById("fFood").value = "";
+  document.getElementById("fPlace").value = "";
+  document.getElementById("fSettlement").value = "";
+  updateFilterBtnState();
+  rebuildQueue();
+});
+
 /* ===================== SWIPE DECK ===================== */
 
 const deckEl = document.getElementById("deck");
 const deckEmpty = document.getElementById("deckEmpty");
+const deckEmptyText = document.getElementById("deckEmptyText");
 let swipes = get(LS.swipes, {});
 let matches = get(LS.matches, []);
 let queue = SEED_PROFILES.filter(p => !(p.id in swipes));
 
+const showPassedBtn = document.getElementById("showPassedBtn");
+
+function hasPassedProfiles(){
+  return Object.values(swipes).includes("pass");
+}
+
+function rebuildQueue(){
+  queue = SEED_PROFILES.filter(p => !(p.id in swipes) && matchesFilters(p));
+  renderDeck();
+}
+
 function renderDeck(){
   deckEl.innerHTML = "";
   deckEmpty.hidden = queue.length > 0;
+  showPassedBtn.hidden = !(queue.length === 0 && hasPassedProfiles() && !hasActiveFilters());
 
-  queue.slice(0, 3).reverse().forEach((p, idxFromTop)=>{
+  if(queue.length === 0 && hasActiveFilters()){
+    deckEmptyText.innerHTML = "Нікого не знайдено за цими фільтрами 🔍<br>Спробуй змінити критерії пошуку.";
+  } else {
+    deckEmptyText.innerHTML = "Це всі, хто зараз поруч 🍻<br>Заглянь пізніше — з'являться нові.";
+  }
+
+  queue.slice(0, 3).reverse().forEach(p=>{
     const card = buildCard(p);
     deckEl.appendChild(card);
   });
@@ -81,8 +331,14 @@ function buildCard(p){
   const card = document.createElement("div");
   card.className = "swipe-card";
   card.dataset.id = p.id;
+
+  const extraTags = [];
+  if(p.gender) extraTags.push(`<span class="card-tag">${p.gender === "жінка" ? "♀" : p.gender === "чоловік" ? "♂" : "⚧"} ${escapeHtml(p.gender)}</span>`);
+  if(p.language) extraTags.push(`<span class="card-tag">🗣 ${escapeHtml(p.language)}</span>`);
+  if(p.favoritePlace && p.favoritePlace !== "—") extraTags.push(`<span class="card-tag">⭐ ${escapeHtml(p.favoritePlace)}</span>`);
+
   card.innerHTML = `
-    <div class="card-avatar">${p.avatar}</div>
+    <div class="card-avatar">${p.photo ? `<img src="${p.photo}" alt="${escapeHtml(p.name)}">` : p.avatar}</div>
     <div class="card-online">
       <span class="dot" style="background:${p.online ? "var(--green)" : "var(--text-dim)"}"></span>
       ${p.online ? "онлайн зараз" : "не в мережі"}
@@ -90,11 +346,12 @@ function buildCard(p){
     <div class="stamp stamp-like">LIKE</div>
     <div class="stamp stamp-nope">NOPE</div>
     <div class="card-body">
-      <h3 class="card-name">${escapeHtml(p.name)}<span class="card-badge ${p.type === "person" ? "badge-person" : "badge-company"}">${p.type === "person" ? "людина" : "заклад"}</span></h3>
+      <h3 class="card-name">${escapeHtml(p.name)}${p.verified ? ' <span class="verify-check" title="Верифікований профіль">✓</span>' : ''}<span class="card-badge ${p.type === "person" ? "badge-person" : "badge-company"}">${p.type === "person" ? "людина" : "заклад"}</span></h3>
       <p class="card-geo">📍 ${escapeHtml(p.geo)}</p>
       <div class="card-tags">
         <span class="card-tag">🍺 ${escapeHtml(p.drinks)}</span>
         <span class="card-tag">🍴 ${escapeHtml(p.food)}</span>
+        ${extraTags.join("")}
       </div>
       <p class="card-bio">${escapeHtml(p.bio)}</p>
     </div>
@@ -147,10 +404,14 @@ function attachDragToTopCard(){
   top.addEventListener("touchend", pointerUp);
 }
 
+let isSwiping = false;
+
 function finishSwipe(action){
+  if(isSwiping) return;
   const topCard = deckEl.querySelector(".swipe-card:last-child");
   const id = topCard?.dataset.id;
   if(!id) return;
+  isSwiping = true;
   const flyX = action === "like" ? 500 : -500;
   if(topCard){
     topCard.style.transform = `translate(${flyX}px, -40px) rotate(${flyX/14}deg)`;
@@ -159,16 +420,24 @@ function finishSwipe(action){
   swipes[id] = action;
   set(LS.swipes, swipes);
 
-  setTimeout(()=>{
+ setTimeout(()=>{
     const profile = queue.find(p=>p.id === id);
     queue = queue.filter(p=>p.id !== id);
     renderDeck();
     if(action === "like" && profile){
       registerMatch(profile);
     }
+    isSwiping = false;
   }, 220);
 }
 
+showPassedBtn.addEventListener("click", ()=>{
+  Object.keys(swipes).forEach(id=>{
+    if(swipes[id] === "pass") delete swipes[id];
+  });
+  set(LS.swipes, swipes);
+  rebuildQueue();
+});
 document.getElementById("passBtn").addEventListener("click", ()=> finishSwipe("pass"));
 document.getElementById("likeBtn").addEventListener("click", ()=> finishSwipe("like"));
 
@@ -222,7 +491,7 @@ function renderChatList(){
     const row = document.createElement("div");
     row.className = "chat-row";
     row.innerHTML = `
-      <div class="chat-avatar">${profile.avatar}</div>
+      <div class="chat-avatar">${profile.photo ? `<img src="${profile.photo}" alt="${escapeHtml(profile.name)}">` : profile.avatar}</div>
       <div class="chat-meta">
         <p class="chat-name">${escapeHtml(profile.name)}</p>
         <p class="chat-preview">${escapeHtml(last ? last.text : "Кажи привіт!")}</p>
@@ -364,6 +633,8 @@ function renderPlacesList(){
   });
 }
 
+/* ---------- модалка закладу ---------- */
+
 const placeModalOverlay = document.getElementById("placeModalOverlay");
 const placeModalTitle = document.getElementById("placeModalTitle");
 const placeModalEyebrow = document.getElementById("placeModalEyebrow");
@@ -387,8 +658,21 @@ function openPlaceModal(){
     reviewsList.innerHTML = `<p class="no-reviews">Тут з'являться відгуки після першого запису.</p>`;
   }
 }
-document.querySelectorAll('[data-close="place"]').forEach(btn=> btn.addEventListener("click", ()=> placeModalOverlay.hidden = true));
-placeModalOverlay.addEventListener("click", e=>{ if(e.target === placeModalOverlay) placeModalOverlay.hidden = true; });
+
+function closePlaceModal(){
+  placeModalOverlay.hidden = true;
+}
+
+// Закриття по кнопці-хрестику
+document.getElementById("placeModalCloseBtn").addEventListener("click", closePlaceModal);
+// Закриття по кліку на затемнений фон
+placeModalOverlay.addEventListener("click", e=>{
+  if(e.target === placeModalOverlay) closePlaceModal();
+});
+// Закриття по Escape
+document.addEventListener("keydown", e=>{
+  if(e.key === "Escape" && !placeModalOverlay.hidden) closePlaceModal();
+});
 
 function renderReviews(place){
   if(place.reviews.length === 0){
@@ -429,33 +713,89 @@ document.getElementById("reviewForm").addEventListener("submit", e=>{
 
 /* ===================== ПРОФІЛЬ ===================== */
 
-const me = get(LS.me, {name:"", type:"person", geo:"", drinks:"", food:"", places:"", bio:"", online:true, avatar:"🙂"});
-document.getElementById("pName").value = me.name;
-document.getElementById("pType").value = me.type;
-document.getElementById("pGeo").value = me.geo;
-document.getElementById("pDrinks").value = me.drinks;
-document.getElementById("pFood").value = me.food;
-document.getElementById("pPlaces").value = me.places;
-document.getElementById("pBio").value = me.bio;
-document.getElementById("onlineToggle").checked = me.online;
+document.getElementById("pPhoto").addEventListener("change", async e=>{
+  const photo = await readPhotoFile(e.target);
+  if(photo) renderAvatarPreview({photo});
+});
 
-document.getElementById("profileForm").addEventListener("submit", e=>{
+document.getElementById("profileForm").addEventListener("submit", async e=>{
   e.preventDefault();
+  const me = currentMe() || {};
+  const newPhoto = await readPhotoFile(document.getElementById("pPhoto"));
   const updated = {
+    ...me,
     name: document.getElementById("pName").value.trim(),
+    age: Number(document.getElementById("pAge").value),
     type: document.getElementById("pType").value,
-    geo: document.getElementById("pGeo").value.trim(),
+    gender: document.getElementById("pGender").value,
+    language: document.getElementById("pLanguage").value,
+    settlementType: document.getElementById("pSettlementType").value,
+    settlementName: document.getElementById("pSettlementName").value.trim(),
     drinks: document.getElementById("pDrinks").value.trim(),
     food: document.getElementById("pFood").value.trim(),
-    places: document.getElementById("pPlaces").value.trim(),
+    favoritePlace: document.getElementById("pFavPlace").value.trim(),
+    hobbies: document.getElementById("pHobbies").value.trim(),
     bio: document.getElementById("pBio").value.trim(),
     online: document.getElementById("onlineToggle").checked,
-    avatar: me.avatar
+    avatar: me.avatar || "🙂",
+    photo: newPhoto || me.photo || null
   };
   set(LS.me, updated);
+  renderAvatarPreview(updated);
   const note = document.getElementById("saveNote");
   note.hidden = false;
   setTimeout(()=> note.hidden = true, 1800);
+});
+
+/* ---------- ПРЕВ'Ю АНКЕТИ ---------- */
+
+const previewModalOverlay = document.getElementById("previewModalOverlay");
+const previewCardWrap = document.getElementById("previewCardWrap");
+
+function buildGeoFromForm(){
+  const settlementName = document.getElementById("pSettlementName").value.trim();
+  const settlementType = document.getElementById("pSettlementType").value;
+  if(!settlementName) return "Локація не вказана";
+  return settlementType && settlementType !== "Місто" ? `${settlementName} (${settlementType})` : settlementName;
+}
+
+function renderPreviewCard(){
+  const me = currentMe() || {};
+  const avatarEl = document.getElementById("avatarPreview");
+  const imgEl = avatarEl.querySelector("img");
+  const photo = imgEl ? imgEl.getAttribute("src") : (me.photo || null);
+
+  const previewProfile = {
+    id: "preview",
+    name: document.getElementById("pName").value.trim() || "Без імені",
+    type: document.getElementById("pType").value,
+    gender: document.getElementById("pGender").value,
+    language: document.getElementById("pLanguage").value,
+    geo: buildGeoFromForm(),
+    online: document.getElementById("onlineToggle").checked,
+    avatar: me.avatar || "🙂",
+    photo,
+    drinks: document.getElementById("pDrinks").value.trim() || "Не вказано",
+    food: document.getElementById("pFood").value.trim() || "Не вказано",
+    favoritePlace: document.getElementById("pFavPlace").value.trim(),
+    bio: document.getElementById("pBio").value.trim() || "Опис ще не додано.",
+    verified: !!me.verified
+  };
+
+  previewCardWrap.innerHTML = "";
+  previewCardWrap.appendChild(buildCard(previewProfile));
+}
+
+document.getElementById("previewBtn").addEventListener("click", ()=>{
+  renderPreviewCard();
+  previewModalOverlay.hidden = false;
+});
+document.getElementById("previewModalCloseBtn").addEventListener("click", ()=> previewModalOverlay.hidden = true);
+previewModalOverlay.addEventListener("click", e=>{
+  if(e.target === previewModalOverlay) previewModalOverlay.hidden = true;
+});
+document.addEventListener("keydown", e=>{
+  if(e.key === "Escape" && !previewModalOverlay.hidden) previewModalOverlay.hidden = true;
 });
 
 /* ---------- геолокація ---------- */
@@ -479,5 +819,5 @@ myLocationBadge.addEventListener("click", ()=>{
 
 /* ===================== СТАРТ ===================== */
 
-renderDeck();
+rebuildQueue();
 if(matches.length > 0) chatDot.hidden = false;
