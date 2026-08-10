@@ -68,6 +68,235 @@ try {
 }
 
 
+/* ===================== SUPABASE: ТАБЛИЦЯ ПРОФІЛІВ =====================
+   Перевірено напряму в проєкті Supabase "nalyvay" (yecjmwgmfwqgxbiggeby)
+   через Supabase MCP (list_tables + pg_policies). Існуюча таблиця:
+
+     public.profiles
+       id             uuid  PRIMARY KEY, FOREIGN KEY -> auth.users.id
+       name           text  NOT NULL
+       birth_date     date  nullable
+       gender         text  nullable
+       city           text  nullable
+       bio            text  nullable
+       photo_url      text  nullable
+       phone_verified boolean default false
+       age_verified   boolean default false
+       is_active      boolean default true
+       created_at     timestamptz default now()
+
+   RLS (уже увімкнено, policies вже існують — нічого не змінювалось):
+     INSERT — authenticated, with_check: auth.uid() = id
+     UPDATE — authenticated, using/with_check: auth.uid() = id
+     SELECT — authenticated, using: is_active = true (тобто будь-який
+              залогінений користувач бачить усі активні анкети, у т.ч. свою)
+   Анонімні (не залогінені) відвідувачі не мають жодної policy на цю
+   таблицю => нічого з неї не читають. Це відповідає вимозі проєкту.
+
+   ВАЖЛИВО — чого НЕМАЄ в цій таблиці (і що ми свідомо НЕ пишемо туди,
+   щоб не змінювати структуру без команди):
+     type (людина/заклад), language, settlementType (окремо від city),
+     drinks, food, favoritePlace, hobbies.
+   Ці поля анкети UI все ще збирає (форма реєстрації/профілю), але вони
+   зберігаються ЛИШЕ локально (localStorage) і не синхронізуються між
+   користувачами, доки в таблицю не додадуть відповідні колонки. Це
+   свідомий компроміс, а не помилка — див. підсумковий звіт у чаті. */
+
+const PROFILE_TABLE = "profiles";
+
+/* Форма реєстрації/профілю питає "вік" (число), а в таблиці є лише
+   "birth_date" (дата). Точної дати народження ми не збираємо, тож
+   зберігаємо наближену дату — 1 січня року народження. Це навмисне
+   спрощення: воно дає коректний "вік" при зворотному перерахунку
+   (birthDateToAge) у будь-який день року, окрім самого 1 січня. */
+function ageToApproxBirthDate(age) {
+  const n = Number(age);
+
+  if (!n || n < 1) return null;
+
+  const year = new Date().getFullYear() - n;
+
+  return `${year}-01-01`;
+}
+
+function birthDateToAge(birthDate) {
+  if (!birthDate) return null;
+
+  const bd = new Date(birthDate);
+
+  if (isNaN(bd.getTime())) return null;
+
+  const now = new Date();
+  let age = now.getFullYear() - bd.getFullYear();
+
+  const hadBirthdayThisYear =
+    now.getMonth() > bd.getMonth() ||
+    (now.getMonth() === bd.getMonth() && now.getDate() >= bd.getDate());
+
+  if (!hadBirthdayThisYear) age -= 1;
+
+  return age;
+}
+
+/* Колонка "city" — один текстовий рядок. У формах є окремо назва
+   населеного пункту і його тип (Місто/СМТ/Село). Об'єднуємо так само,
+   як це вже робилось у buildGeoFromForm() для прев'ю анкети. */
+function buildCityString(settlementName, settlementType) {
+  const name = (settlementName || "").trim();
+
+  if (!name) return null;
+
+  return settlementType && settlementType !== "Місто"
+    ? `${name} (${settlementType})`
+    : name;
+}
+
+/* Перетворює анкету у форматі застосунку (LS.me / pendingRegistration)
+   на рядок для запису у public.profiles. Пише ЛИШЕ ті поля, які реально
+   існують у таблиці. photo_url свідомо не заповнюється тут — Supabase
+   Storage bucket для фото ще не налаштований (див. звіт у чаті, п.8):
+   писати base64-фото у текстову колонку без bucket'у ми не робимо
+   автоматично. */
+function profileToSupabaseRow(profile) {
+  return {
+    id: profile.id,
+    name: profile.name || "",
+    birth_date: ageToApproxBirthDate(profile.age),
+    gender: profile.gender || null,
+    city: buildCityString(profile.settlementName, profile.settlementType),
+    bio: profile.bio || null,
+    is_active: profile.online !== false
+  };
+}
+
+/* INSERT/UPDATE анкети відбувається саме тут: upsert по первинному
+   ключу id (auth.uid()). RLS дозволяє це лише коли auth.uid() === id,
+   тобто користувач може писати виключно свою анкету. */
+async function saveProfileToSupabase(profile) {
+  if (!supabaseClient) {
+    return { data: null, error: new Error("supabaseClient недоступний") };
+  }
+
+  if (!profile || !profile.id) {
+    return { data: null, error: new Error("У анкети немає id (auth.uid()) — Email ще не підтверджено") };
+  }
+
+  const row = profileToSupabaseRow(profile);
+
+  const { data, error } = await supabaseClient
+    .from(PROFILE_TABLE)
+    .upsert(row, { onConflict: "id" })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Supabase upsert profiles error:", error);
+  }
+
+  return { data, error };
+}
+
+/* Перетворює рядок із public.profiles на об'єкт у форматі картки
+   NALYVAY (те, що очікує buildCard() та matchesFilters()). Поля, яких
+   немає в таблиці (type/language/drinks/food/favoritePlace/hobbies),
+   підставляються безпечними значеннями за замовчуванням. */
+function supabaseRowToCard(row) {
+  return {
+    id: row.id,
+    name: row.name || "Без імені",
+    type: "person", // у таблиці немає колонки type — Supabase-профілі завжди показуються як "людина"
+    gender: row.gender || "",
+    language: "", // колонки language немає в таблиці
+    geo: row.city || "Локація не вказана",
+    online: row.is_active !== false,
+    avatar: "🙂",
+    photo: row.photo_url || null,
+    age: birthDateToAge(row.birth_date),
+    drinks: "", // колонки drinks немає в таблиці
+    food: "", // колонки food немає в таблиці
+    favoritePlace: "", // колонки favoritePlace немає в таблиці
+    hobbies: "", // колонки hobbies немає в таблиці
+    bio: row.bio || "",
+    verified: !!(row.phone_verified || row.age_verified),
+    _source: "supabase"
+  };
+}
+
+/* Відновлює LS.me з рядка public.profiles (напр. коли людина відкрила
+   застосунок на іншому пристрої/після очищення localStorage, але має
+   активну сесію Supabase). Поля, яких немає в таблиці, підставляються
+   розумними значеннями за замовчуванням — їх доведеться заповнити
+   заново через форму профілю, бо в базі їх ніде не було збережено. */
+function supabaseRowToLocalMe(row, email) {
+  return {
+    id: row.id,
+    email: email || null,
+    name: row.name || "",
+    age: birthDateToAge(row.birth_date),
+    type: "person",
+    gender: row.gender || "жінка",
+    language: "Українська",
+    settlementType: "Місто",
+    settlementName: row.city || "",
+    drinks: "",
+    food: "",
+    favoritePlace: "",
+    hobbies: "",
+    bio: row.bio || "",
+    online: row.is_active !== false,
+    avatar: "🙂",
+    photo: row.photo_url || null,
+    verified: !!(row.phone_verified || row.age_verified)
+  };
+}
+
+/* SELECT анкет відбувається саме тут: усі активні анкети (RLS уже сам
+   фільтрує is_active = true), окрім анкети поточного користувача. */
+async function loadRemoteProfiles() {
+  if (!supabaseClient) return [];
+
+  const me = currentMe();
+  const myId = me && me.id;
+
+  const { data, error } = await supabaseClient
+    .from(PROFILE_TABLE)
+    .select("id,name,birth_date,gender,city,bio,photo_url,phone_verified,age_verified,is_active,created_at")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Supabase select profiles error:", error);
+    return [];
+  }
+
+  return (data || [])
+    .filter(row => row.id !== myId)
+    .map(supabaseRowToCard);
+}
+
+/* Кеш анкет із Supabase у пам'яті — джерело для свайп-колоди. */
+let remoteProfiles = [];
+let remoteProfilesLoaded = false;
+
+async function refreshRemoteProfiles() {
+  remoteProfiles = await loadRemoteProfiles();
+  remoteProfilesLoaded = true;
+  rebuildQueue();
+  if (typeof renderChatList === "function" && chatListView && !chatListView.hidden) {
+    renderChatList();
+  }
+}
+
+/* Знаходить анкету за id серед реальних (Supabase) і тестових (seed)
+   профілів. Використовується у чатах/метчах, щоб не ламати їх тепер,
+   коли колода може складатись не лише з SEED_PROFILES. */
+function findProfileById(id) {
+  return (
+    remoteProfiles.find(p => p.id === id) ||
+    SEED_PROFILES_SAFE.find(p => p.id === id) ||
+    null
+  );
+}
+
 function cryptoId() {
   return "id-" +
     Math.random().toString(36).slice(2, 10) +
@@ -422,7 +651,11 @@ async function checkEmailConfirmation() {
       JSON.parse(pending);
 
 
-    /* Email підтверджений */
+    /* Email підтверджений.
+       session.user.id — стабільний ідентифікатор користувача
+       (auth.users.id), саме він є первинним ключем у public.profiles. */
+
+    registration.id = session.user.id;
 
     registration.email =
       session.user.email;
@@ -430,7 +663,30 @@ async function checkEmailConfirmation() {
     registration.verified = true;
 
 
-    /* Створюємо профіль */
+    /* ЗАПИС АНКЕТИ В SUPABASE (INSERT/UPSERT).
+       Виконується ДО збереження в localStorage: якщо запис у базу
+       не вдався, ми все одно зберігаємо анкету локально (щоб людина
+       не втратила щойно заповнену форму), але чесно повідомляємо її
+       про проблему, а не мовчимо. */
+
+    const { error: saveError } =
+      await saveProfileToSupabase(registration);
+
+    if (saveError) {
+      console.error(
+        "Не вдалося записати анкету в Supabase:",
+        saveError
+      );
+
+      alert(
+        "Email підтверджено, анкету збережено локально, але не вдалося " +
+        "записати її в базу даних: " + saveError.message + ". " +
+        "Спробуй зберегти профіль ще раз на вкладці «Профіль»."
+      );
+    }
+
+
+    /* Створюємо профіль (локальна копія для швидкої роботи інтерфейсу) */
 
     set(
       LS.me,
@@ -453,6 +709,14 @@ async function checkEmailConfirmation() {
     showApp();
 
 
+    /* Підвантажуємо анкети інших користувачів заново — щоб одразу
+       врахувати щойно створену власну анкету (виключити себе) */
+
+    if (typeof refreshRemoteProfiles === "function") {
+      refreshRemoteProfiles();
+    }
+
+
   } catch (error) {
 
     console.error(
@@ -465,10 +729,52 @@ async function checkEmailConfirmation() {
 }
 
 
-/* Перевіряємо, чи повернувся
-   користувач після підтвердження Email */
+/* ===================== ЗАПУСК АВТЕНТИФІКАЦІЇ/АНКЕТ =====================
+   1. checkEmailConfirmation() — сценарій Magic Link, як і раніше:
+      підхоплює nalyvay_pending_registration після повернення з листа.
+   2. Якщо користувач уже має LS.me (повертається у застосунок) —
+      одразу показуємо застосунок, не чекаючи мережі.
+   3. Якщо LS.me немає, але є активна сесія Supabase (напр. інший
+      пристрій або очищений localStorage) — підтягуємо анкету з бази.
+   4. У будь-якому разі підвантажуємо анкети інших користувачів. */
 
-checkEmailConfirmation();
+async function initAuthAndProfiles() {
+
+  await checkEmailConfirmation();
+
+  if (!currentMe() && supabaseClient) {
+    try {
+      const {
+        data: { session }
+      } = await supabaseClient.auth.getSession();
+
+      if (session && session.user) {
+        const { data: row, error } = await supabaseClient
+          .from(PROFILE_TABLE)
+          .select("id,name,birth_date,gender,city,bio,photo_url,phone_verified,age_verified,is_active,created_at")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Не вдалося відновити анкету з Supabase:", error);
+        } else if (row) {
+          set(LS.me, supabaseRowToLocalMe(row, session.user.email));
+          showApp();
+        }
+      }
+    } catch (err) {
+      console.error("Помилка перевірки існуючої сесії Supabase:", err);
+    }
+  } else if (currentMe()) {
+    /* Анкета вже є локально — одразу пускаємо в застосунок,
+       без очікування мережі (реєстрація повторно не показується). */
+    showApp();
+  }
+
+  await refreshRemoteProfiles();
+}
+
+initAuthAndProfiles();
 
 /* ===================== НАВІГАЦІЯ ===================== */
 
@@ -604,8 +910,23 @@ function hasPassedProfiles(){
   return Object.values(swipes).includes("pass");
 }
 
+/* Основне джерело анкет — supabaseClient.from("profiles") (кеш
+   remoteProfiles, який оновлює refreshRemoteProfiles()).
+   SEED_PROFILES_SAFE використовується ЛИШЕ як fallback, і тільки поки
+   Supabase ще не встиг завантажитись АБО коли реальних анкет у базі
+   немає (порожня база) — реальні користувачі від тестових профілів
+   відрізняються полем _source ("supabase" проти відсутнього/"seed"). */
+function sourceProfiles(){
+  if(!remoteProfilesLoaded){
+    // Supabase ще не відповів — тимчасово показуємо seed, щоб екран
+    // не був порожнім при першому рендері.
+    return SEED_PROFILES_SAFE;
+  }
+  return remoteProfiles.length > 0 ? remoteProfiles : SEED_PROFILES_SAFE;
+}
+
 function rebuildQueue(){
-  queue = SEED_PROFILES_SAFE.filter(p => !(p.id in swipes) && matchesFilters(p));
+  queue = sourceProfiles().filter(p => !(p.id in swipes) && matchesFilters(p));
   renderDeck();
 }
 
@@ -784,7 +1105,7 @@ function renderChatList(){
   chatsEmpty.hidden = matches.length > 0;
   const chats = get(LS.chats, {});
   matches.forEach(id=>{
-    const profile = SEED_PROFILES_SAFE.find(p=>p.id === id);
+    const profile = findProfileById(id);
     if(!profile) return;
     const thread = chats[id] || [];
     const last = thread[thread.length - 1];
@@ -803,7 +1124,7 @@ function renderChatList(){
 }
 
 function openThread(id){
-  const profile = SEED_PROFILES_SAFE.find(p=>p.id === id);
+  const profile = findProfileById(id);
   if(!profile) return;
   chatListView.hidden = true;
   chatThreadView.hidden = false;
@@ -1045,11 +1366,42 @@ document.getElementById("profileForm").addEventListener("submit", async e=>{
     avatar: me.avatar || "🙂",
     photo: newPhoto || me.photo || null
   };
+
+  /* Локальна копія — завжди, для миттєвого відгуку інтерфейсу */
   set(LS.me, updated);
   renderAvatarPreview(updated);
+
   const note = document.getElementById("saveNote");
-  note.hidden = false;
-  setTimeout(()=> note.hidden = true, 1800);
+
+  /* UPDATE анкети в Supabase (та сама функція, що й для реєстрації —
+     upsert по id; RLS дозволяє це лише для власного профілю). Якщо
+     людина ще не підтвердила Email (updated.id відсутній), апдейт
+     у базу пропускається — зберігати нема куди, це очікувано. */
+  if (updated.id) {
+    const { error } = await saveProfileToSupabase(updated);
+
+    if (error) {
+      note.textContent = "Збережено локально, але не в базі: " + error.message;
+      note.hidden = false;
+      setTimeout(()=> { note.hidden = true; note.textContent = "Збережено ✓"; }, 3200);
+    } else {
+      note.textContent = "Збережено ✓";
+      note.hidden = false;
+      setTimeout(()=> note.hidden = true, 1800);
+
+      /* Оновлюємо кеш чужих анкет — інші вже побачать зміну при
+         наступному завантаженні їхнього застосунку (SELECT читає базу
+         напряму, тут це лише про власний кеш поточної вкладки). */
+      if (typeof refreshRemoteProfiles === "function") {
+        refreshRemoteProfiles();
+      }
+    }
+  } else {
+    console.warn("У профілю ще немає id (Email не підтверджено) — зміни збережено лише локально.");
+    note.textContent = "Збережено ✓";
+    note.hidden = false;
+    setTimeout(()=> note.hidden = true, 1800);
+  }
 });
 
 /* ---------- ПРЕВ'Ю АНКЕТИ ---------- */
