@@ -63,10 +63,16 @@
       <label>Ім'я <!-- text, обов'язкове: ім'я або назва компанії, показується на картці -->
         <input type="text" id="regName" required placeholder="Як тебе звати">
       </label>
+      
+      <label>Email
+        <input type="email" id="regEmail" required placeholder="you@example.com" autocomplete="email">
+      </label>
+      
       <div class="form-row">
         <label>Вік <!-- number 18–99, обов'язкове -->
           <input type="number" id="regAge" min="18" max="99" required placeholder="25">
         </label>
+        
         <label>Тип анкети <!-- визначає бейдж "людина"/"заклад" на картці -->
           <select id="regType">
             <option value="person">Людина</option>
@@ -74,6 +80,7 @@
           </select>
         </label>
       </div>
+      
       <div class="form-row">
         <label>Стать
           <select id="regGender">
@@ -82,6 +89,7 @@
             <option value="інша">Інша</option>
           </select>
         </label>
+        
         <label>Мова спілкування
           <select id="regLanguage">
             <option value="Українська">Українська</option>
@@ -90,6 +98,7 @@
           </select>
         </label>
       </div>
+      
       <div class="form-row">
         <label>Тип населеного пункту
           <select id="regSettlementType">
@@ -98,6 +107,7 @@
             <option value="Село">Село</option>
           </select>
         </label>
+        
         <label>Де зараз
           <input type="text" id="regSettlementName" required placeholder="Черкаси">
         </label>
