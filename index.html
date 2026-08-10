@@ -59,88 +59,167 @@
     <p class="reg-sub">Це займе хвилину. Без анкети не можна свайпати й лишати відгуки.</p>
     <!-- форма реєстрації: усі поля required, окрім фото й опису, обов'язкові —
          без заповненої анкети застосунок далі не пускає (див. showApp() у script.js) -->
-    <form id="regForm">
-      <label>Ім'я <!-- text, обов'язкове: ім'я або назва компанії, показується на картці -->
-        <input type="text" id="regName" required placeholder="Як тебе звати">
-      </label>
+   <form id="regForm">
+
+  <label>Ім'я або назва компанії
+    <input
+      type="text"
+      id="regName"
+      required
+      placeholder="Твоє ім'я"
+    >
+  </label>
+
   <label>Email
-  <input type="email" id="regEmail" required placeholder="you@example.com" autocomplete="email">
-</label>
-
-<div class="form-row">
-  <label>Вік
-    <input type="number" id="regAge" min="18" max="99" required placeholder="25">
+    <input
+      type="email"
+      id="regEmail"
+      required
+      placeholder="you@example.com"
+      autocomplete="email"
+    >
   </label>
 
-  <label>Тип анкети
-    <select id="regType">
-      <option value="person">Людина</option>
-      <option value="company">Компанія</option>
-    </select>
+  <div class="form-row">
+    <label>Вік
+      <input
+        type="number"
+        id="regAge"
+        min="18"
+        max="99"
+        required
+        placeholder="25"
+      >
+    </label>
+
+    <label>Тип анкети
+      <select id="regType">
+        <option value="person">Людина</option>
+        <option value="company">Компанія</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="form-row">
+    <label>Стать
+      <select id="regGender">
+        <option value="жінка">Жіноча</option>
+        <option value="чоловік">Чоловіча</option>
+        <option value="інша">Інша</option>
+      </select>
+    </label>
+
+    <label>Мова спілкування
+      <select id="regLanguage">
+        <option value="Українська">Українська</option>
+        <option value="English">English</option>
+        <option value="Інша">Інша</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="form-row">
+    <label>Тип населеного пункту
+      <select id="regSettlementType">
+        <option value="Місто">Місто</option>
+        <option value="СМТ">СМТ</option>
+        <option value="Село">Село</option>
+      </select>
+    </label>
+
+    <label>Де зараз
+      <input
+        type="text"
+        id="regSettlementName"
+        required
+        placeholder="Черкаси"
+      >
+    </label>
+  </div>
+
+  <label>🍺 Що любиш пити
+    <input
+      type="text"
+      id="regDrinks"
+      required
+      placeholder="Джин-тонік, крафтове пиво"
+    >
   </label>
-</div>
 
-<div class="form-row">
-  <label>Стать
-    <select id="regGender">
-      <option value="жінка">Жіноча</option>
-      <option value="чоловік">Чоловіча</option>
-      <option value="інша">Інша</option>
-    </select>
+  <label>🍴 Що любиш їсти
+    <input
+      type="text"
+      id="regFood"
+      placeholder="Суші, бургери"
+    >
   </label>
 
-  <label>Мова спілкування
-    <select id="regLanguage">
-      <option value="Українська">Українська</option>
-      <option value="English">English</option>
-      <option value="Інша">Інша</option>
-    </select>
-  </label>
-</div>
-
-<div class="form-row">
-  <label>Тип населеного пункту
-    <select id="regSettlementType">
-      <option value="Місто">Місто</option>
-      <option value="СМТ">СМТ</option>
-      <option value="Село">Село</option>
-    </select>
+  <label>⭐ Улюблений заклад
+    <input
+      type="text"
+      id="regFavPlace"
+      placeholder="Бар «Хвиля»"
+    >
   </label>
 
-  <label>Де зараз
-    <input type="text" id="regSettlementName" required placeholder="Черкаси">
+  <label>🚶 Куди любиш ходити / хобі
+    <input
+      type="text"
+      id="regHobbies"
+      placeholder="Бари з живою музикою, настолки, кава вранці"
+    >
   </label>
-</div>
 
-<label>🍺 Що любиш пити
-  <input type="text" id="regDrinks" required placeholder="Джин-тонік, крафтове пиво">
-</label>
+  <label>Фото профілю
+    <input
+      type="file"
+      accept="image/*"
+      id="regPhoto"
+    >
+  </label>
 
-<label>🍴 Що любиш їсти
-  <input type="text" id="regFood" placeholder="Суші, бургери">
-</label>
+  <label>Про себе
+    <textarea
+      id="regBio"
+      rows="2"
+      placeholder="Пара речень для контексту"
+    ></textarea>
+  </label>
 
-<label>⭐ Улюблений заклад
-  <input type="text" id="regFavPlace" placeholder="Бар «Хвиля»">
-</label>
+  <!-- Повідомлення після відправлення листа -->
+  <div
+    id="emailConfirmMessage"
+    class="email-confirm-message"
+    hidden
+  >
+    <h3>📧 Підтвердь Email</h3>
 
-<label>🚶 Куди любиш ходити / хобі
-  <input type="text" id="regHobbies" placeholder="Бари з живою музикою, настолки, кава вранці">
-</label>
+    <p>
+      Ми надіслали лист на
+      <strong id="emailConfirmAddress"></strong>
+    </p>
 
-<label>Фото профілю
-  <input type="file" accept="image/*" id="regPhoto">
-</label>
+    <p>
+      Відкрий лист і натисни
+      <strong>«Confirm email address»</strong>.
+    </p>
 
-<label>Про себе
-  <textarea id="regBio" rows="2" placeholder="Пара речень для контексту"></textarea>
-</label>
-      
-      <button type="submit" class="btn btn-primary btn-full">Почати знайомитись</button>
-    </form>
+    <p>
+      Після підтвердження тебе автоматично поверне до НАЛИВАЙ.
+    </p>
+  </div>
+
+  <!-- Кнопка реєстрації -->
+  <button
+    type="submit"
+    class="btn btn-primary btn-full"
+  >
+    Почати знайомитись
+  </button>
+
+</form>
   </div>
 </div>
-
 <div class="app" id="appRoot">
 
   <header class="app-header">
