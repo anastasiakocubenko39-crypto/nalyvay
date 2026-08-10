@@ -443,12 +443,25 @@ body{
    МАПА ЗАКЛАДІВ (вкладка "Заклади")
    ================================================================== */
 #map{
-  height: clamp(10000px, 60vh, 650px);
+  height: 50vh;
+  min-height: 350px;
   margin:14px 18px; overflow:hidden;
   border:1px solid var(--line); box-shadow:0 20px 50px -10px rgba(0,0,0,0.7), 0 0 24px var(--raspberry-glow);
   position:relative; z-index:1;
 }
-.places-list{padding:0 18px 20px; overflow-y:auto;}   /* прокручуваний список закладів під мапою */
+
+@media (max-width: 480px){
+  #map{
+    height: 50vh;
+    min-height: 300px;
+    margin: 10px 12px;
+  }
+}
+
+.places-list{
+  padding:0 18px 20px;
+  overflow-y: visible;    /* хай скролиться вся сторінка, а не внутрішній блок */
+}
 .places-list h3{
   font-family:var(--font-display); font-size:14px; color:var(--raspberry); margin:4px 0 10px;
 }
@@ -471,14 +484,6 @@ body{
 
 .place-meta-line{font-size:12px; color:var(--text-dim); margin:0 0 6px;}      /* адреса/години в модалці закладу */
 .place-meta-hours{color:var(--green); font-weight:600;}
-
-@media (max-width: 480px){
-  #map{
-    height: clamp(280px, 55vh, 480px);
-    margin: 10px 12px;
-  }
-}
-
 /* ==================================================================
    ЧАТИ (вкладка "Чати")
    ================================================================== */
