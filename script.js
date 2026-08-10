@@ -6,24 +6,32 @@ const introSkipBtn = document.getElementById("introSkipBtn");
 const introLogoFallback = document.getElementById("introLogoFallback");
 
 function hideIntro(){
-  introOverlay.classList.add("intro-hidden");
-  setTimeout(()=>{ introOverlay.hidden = true; }, 400); // час на CSS-анімацію зникнення, якщо є
+    if (!introOverlay) return;
+
+    introOverlay.classList.add("intro-hidden");
+
+    setTimeout(() => {
+        introOverlay.hidden = true;
+    }, 400);
 }
 
-// кнопка "Пропустити"
-introSkipBtn.addEventListener("click", hideIntro);
+if (introSkipBtn) {
+    introSkipBtn.addEventListener("click", hideIntro);
+}
 
-// відео саме закінчилось — теж ховаємо інтро
-introVideo.addEventListener("ended", hideIntro);
+if (introVideo) {
+    introVideo.addEventListener("ended", hideIntro);
 
-// якщо відео не завантажилось (немає файлу intro.mp4) — показуємо лого-заглушку
-// і одразу ховаємо інтро через 2 секунди, щоб не блокувати застосунок
-introVideo.addEventListener("error", ()=>{
-  introVideo.hidden = true;
-  introLogoFallback.hidden = false;
-  setTimeout(hideIntro, 2000);
-});
+    introVideo.addEventListener("error", () => {
+        introVideo.hidden = true;
 
+        if (introLogoFallback) {
+            introLogoFallback.hidden = false;
+        }
+
+        setTimeout(hideIntro, 2000);
+    });
+}
 /* ===================== СХОВИЩЕ ===================== */
 
 const LS = {
