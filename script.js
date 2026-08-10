@@ -215,7 +215,9 @@ regForm.addEventListener("submit", async e => {
     return;
   }
 
-  const photo = await readPhotoFile(document.getElementById("regPhoto"));
+  const photo = await readPhotoFile(
+    document.getElementById("regPhoto")
+  );
 
   pendingRegistration = {
     name: document.getElementById("regName").value.trim(),
@@ -237,6 +239,13 @@ regForm.addEventListener("submit", async e => {
     verified: false
   };
 
+  // Зберігаємо анкету, бо після переходу з Email
+  // сторінка може перезавантажитися   
+  localStorage.setItem(
+    "nalyvay_pending_registration",
+    JSON.stringify(pendingRegistration)
+  );
+
   const { error } = await supabaseClient.auth.signInWithOtp({
     email: email,
     options: {
@@ -251,27 +260,86 @@ regForm.addEventListener("submit", async e => {
     return;
   }
 
-  const otpSection = document.getElementById("otpSection");
+  // Показуємо повідомлення на екрані
+  const confirmMessage =
+    document.getElementById("emailConfirmMessage");
 
-  if (otpSection) {
-    otpSection.hidden = false;
-  }
+  const confirmAddress =
+    document.getElementById("emailConfirmAddress");
 
-  const otpMessage = document.getElementById("otpMessage");
+  confirmAddress.textContent = email;
+  confirmMessage.hidden = false;
 
-  if (otpMessage) {
-    otpMessage.textContent =
-      "Лист для підтвердження надіслано на " + email +
-      ". Відкрий лист та натисни «Confirm email address».";
-    otpMessage.hidden = false;
-  }
-
-  alert(
-    "Лист для підтвердження надіслано на " +
-    email +
-    ". Натисни кнопку «Confirm email address» у листі."
-  );
+  // Ховаємо кнопку, щоб користувач не надсилав багато листів
+  e.target.querySelector('button[type="submit"]').hidden = true;
 });
+
+if (error) {
+  console.error("OTP error:", error);
+  alert("Не вдалося надіслати лист: " + error.message);
+  return;
+}
+
+const confirmMessage =
+  document.getElementById("emailConfirmMessage");
+
+const confirmAddress =
+  document.getElementById("emailConfirmAddress");
+
+if (confirmAddress) {
+  confirmAddress.textContent = email;
+}
+
+if (confirmMessage) {
+  confirmMessage.hidden = false;
+}
+
+const submitButton =
+  regForm.querySelector('button[type="submit"]');
+
+if (submitButton) {
+  submitButton.hidden = true;
+}
+});
+async function checkEmailConfirmation() {
+  const {
+    data: { session }
+  } = await supabaseClient.auth.getSession();
+
+  if (!session || !session.user) {
+    return;
+  }
+
+  const pending =
+    localStorage.getItem("nalyvay_pending_registration");
+
+  if (!pending) {
+    return;
+  }
+
+  try {
+    const registration = JSON.parse(pending);
+
+    registration.email = session.user.email;
+    registration.verified = true;
+
+    set(LS.me, registration);
+
+    localStorage.removeItem("nalyvay_pending_registration");
+
+    pendingRegistration = null;
+
+    showApp();
+
+  } catch (error) {
+    console.error(
+      "Помилка відновлення реєстрації:",
+      error
+    );
+  }
+}
+
+checkEmailConfirmation();
 
 /* ===================== НАВІГАЦІЯ ===================== */
 
