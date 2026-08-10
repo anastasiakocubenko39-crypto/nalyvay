@@ -1,16 +1,38 @@
 <!DOCTYPE html>
+<!--
+  НАЛИВАЙ — розмітка застосунку (index.html)
+  Коментарі українською стоять перед кожним значущим блоком і пояснюють,
+  за що він відповідає. Біля полів форм пояснення часто вже є у вигляді
+  самого українського label — окремий HTML-коментар додається там, де
+  призначення поля не очевидне з самого label/id.
+-->
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>НАЛИВАЙ — знайомства для тих, хто хоче випити не наодинці</title>
 
+<!-- підключення шрифтів Google Fonts: Unbounded — для заголовків, Manrope — для основного тексту -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- бібліотека Leaflet — інтерактивна карта закладів на вкладці "Заклади" -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<!-- ===================== ФОНОВИЙ ШАР НА ВЕСЬ ЕКРАН =====================
+     Немає завантаженого logo.png від тебе, тому фон зібраний з CSS-смуг
+     і радіального "спалаху" в тих самих кольорах, що на референсі.
+     Якщо покладеш свій logo.png в цю саму папку — він автоматично
+     підхопиться шаром .bg-emblem-img (правило вже прописане в style.css). -->
+<div id="bgStage" aria-hidden="true">
+  <div class="bg-stripes"></div>
+  <div class="bg-emblem"></div>
+  <div class="bg-emblem-img"></div>
+  <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+  <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+</div>
 
 <!-- ===================== ІНТРО-ВІДЕО (на весь екран, ~6-7 сек) ===================== -->
 <div class="intro-overlay" id="introOverlay">
@@ -33,15 +55,17 @@
     <p class="eyebrow">крок 1 з 1</p>
     <h2>Створи анкету</h2>
     <p class="reg-sub">Це займе хвилину. Без анкети не можна свайпати й лишати відгуки.</p>
+    <!-- форма реєстрації: усі поля required, окрім фото й опису, обов'язкові —
+         без заповненої анкети застосунок далі не пускає (див. showApp() у script.js) -->
     <form id="regForm">
-      <label>Ім'я
+      <label>Ім'я <!-- text, обов'язкове: ім'я або назва компанії, показується на картці -->
         <input type="text" id="regName" required placeholder="Як тебе звати">
       </label>
       <div class="form-row">
-        <label>Вік
+        <label>Вік <!-- number 18–99, обов'язкове -->
           <input type="number" id="regAge" min="18" max="99" required placeholder="25">
         </label>
-        <label>Тип анкети
+        <label>Тип анкети <!-- визначає бейдж "людина"/"заклад" на картці -->
           <select id="regType">
             <option value="person">Людина</option>
             <option value="company">Компанія</option>
@@ -77,14 +101,14 @@
         </label>
       </div>
       <div class="form-row">
-        <label>Email
+        <label>Email <!-- зберігається у профілі, ніде публічно не показується -->
           <input type="email" id="regEmail" required placeholder="pошта@приклад.com">
         </label>
-        <label>Пароль
+        <label>Пароль <!-- у сховище потрапляє тільки SHA-256 хеш, не сам текст пароля -->
           <input type="password" id="regPassword" required minlength="6" placeholder="мінімум 6 символів">
         </label>
       </div>
-      <p class="field-hint">Пароль зберігається на пристрої лише у хешованому вигляді (SHA-256), його неможливо прочитати з локального сховища.</p>
+      <p class="field-hint"><!-- пояснення до пароля вище --> Пароль зберігається на пристрої лише у хешованому вигляді (SHA-256), його неможливо прочитати з локального сховища.</p>
       <label>🍺 Що любиш пити
         <input type="text" id="regDrinks" required placeholder="Джин-тонік, крафтове пиво">
       </label>
@@ -143,7 +167,7 @@
       <div class="section-head">
         <p class="eyebrow">карта міста</p>
         <h1 class="screen-title">Де наливають</h1>
-        <p class="screen-sub">Заклади по всій Україні, які позначили інші користувачі. Клікни на мапу, щоб додати свій і лишити відгук.</p>
+        <p class="screen-sub">Заклади по Черкасах, області та по всій Україні. Клікни на мапу, щоб додати свій і лишити відгук.</p>
       </div>
       <div id="map"></div>
       <div class="places-list" id="placesList">
