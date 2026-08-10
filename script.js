@@ -2,7 +2,7 @@
 
 const introOverlay = document.getElementById("introOverlay");
 const introVideo = document.getElementById("introVideo");
-const introSkipBtn = document.getElementById("introSkipBtn");
+const introSkipBtn = document.getElementById("introSkipBtn"); 
 const introLogoFallback = document.getElementById("introLogoFallback");
 
 function hideIntro(){
@@ -16,7 +16,11 @@ function hideIntro(){
 }
 
 if (introSkipBtn) {
-    introSkipBtn.addEventListener("click", hideIntro);
+  introSkipBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    hideIntro();
+  });
 }
 
 if (introVideo) {
