@@ -2,39 +2,32 @@
 
 const introOverlay = document.getElementById("introOverlay");
 const introVideo = document.getElementById("introVideo");
-const introSkipBtn = document.getElementById("introSkipBtn"); 
 const introLogoFallback = document.getElementById("introLogoFallback");
 
-function hideIntro(){
-    if (!introOverlay) return;
+function hideIntro() {
+  if (!introOverlay) return;
 
-    introOverlay.classList.add("intro-hidden");
+  introOverlay.classList.add("intro-hidden");
 
-    setTimeout(() => {
-        introOverlay.hidden = true;
-    }, 400);
+  setTimeout(() => {
+    introOverlay.hidden = true;
+  }, 400);
 }
 
-if (introSkipBtn) {
-  introSkipBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    hideIntro();
-  });
+// Заставка показується 1 секунду
+if (introOverlay) {
+  setTimeout(hideIntro, 1000);
 }
 
+// Якщо відео не завантажилося
 if (introVideo) {
-    introVideo.addEventListener("ended", hideIntro);
+  introVideo.addEventListener("error", () => {
+    introVideo.hidden = true;
 
-    introVideo.addEventListener("error", () => {
-        introVideo.hidden = true;
-
-        if (introLogoFallback) {
-            introLogoFallback.hidden = false;
-        }
-
-        setTimeout(hideIntro, 2000);
-    });
+    if (introLogoFallback) {
+      introLogoFallback.hidden = false;
+    }
+  });
 }
 /* ===================== СХОВИЩЕ ===================== */
 
