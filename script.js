@@ -52,10 +52,30 @@ const SUPABASE_URL =
 const SUPABASE_ANON_KEY =
   "sb_publishable_DIBPiv-9rJowQacsgEBMAw_8GvIxboP";
 
-const supabaseClient = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY
-);
+/* ВИПРАВЛЕНО (аудит форми реєстрації):
+   Якщо бібліотека Supabase (CDN-скрипт @supabase/supabase-js) з будь-якої
+   причини не встигла завантажитись до цього рядка — window.supabase.createClient
+   кидав TypeError. Ця помилка була НЕОБРОБЛЕНОЮ і зупиняла виконання
+   ВСЬОГО script.js нижче по файлу, включно з regForm.addEventListener("submit", ...).
+   Через це обробник форми реєстрації ніколи не приєднувався, і кнопка
+   "Почати знайомитись" відправляла форму нативно — сторінка перезавантажувалась,
+   введені дані зникали, лист не надсилався.
+   Тепер помилка ловиться, у консоль виводиться зрозуміла причина,
+   а supabaseClient лишається null — решта скрипта (навігація, карта, чати,
+   профіль тощо) продовжує працювати як і раніше. */
+let supabaseClient = null;
+
+try {
+  supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+  );
+} catch (err) {
+  console.error(
+    "Не вдалося ініціалізувати Supabase client (CDN не завантажився чи заблокований мережею):",
+    err
+  );
+}
 
 
 function cryptoId() {
@@ -189,6 +209,21 @@ if (regForm) {
   regForm.addEventListener("submit", async e => {
 
     e.preventDefault();
+
+    /* ВИПРАВЛЕНО (аудит форми реєстрації):
+       Додаткова страховка — навіть якщо supabaseClient з якоїсь причини
+       не ініціалізувався (див. блок SUPABASE вище), обробник submit усе одно
+       приєднаний і e.preventDefault() уже спрацював, тобто сторінка НЕ
+       перезавантажиться. Але без клієнта Supabase лист відправити неможливо,
+       тож користувачу одразу показується зрозуміле повідомлення замість
+       мовчазного нічого-не-відбувається. */
+    if (!supabaseClient) {
+      alert(
+        "Сервіс реєстрації тимчасово недоступний (не вдалося з'єднатись із Supabase). " +
+        "Онови сторінку і спробуй ще раз."
+      );
+      return;
+    }
 
     const email =
       document.getElementById("regEmail").value.trim();
@@ -548,9 +583,30 @@ document.getElementById("filterResetBtn").addEventListener("click", ()=>{
 const deckEl = document.getElementById("deck");
 const deckEmpty = document.getElementById("deckEmpty");
 const deckEmptyText = document.getElementById("deckEmptyText");
+/* ВИПРАВЛЕНО (аудит, п.11 запиту):
+   У наданих файлах проєкту (index.html + script.js) немає жодного
+   <script>, що визначає SEED_PROFILES — а він використовується нижче.
+   Якщо на живому сайті такий файл (напр. seed-data.js) підключений
+   окремо — цей рядок нічого не змінює, typeof-перевірка його не займає.
+   Але якщо файл раптом не підключений/не завантажився — раніше це був
+   ReferenceError: SEED_PROFILES is not defined, який зупиняв ВЕСЬ код
+   нижче (свайп-колоду, карту, чати, збереження профілю). Тепер у такому
+   випадку колода просто буде порожньою, а решта застосунку продовжує
+   працювати. */
+if (typeof SEED_PROFILES === "undefined") {
+  console.error(
+    "SEED_PROFILES не знайдено. Переконайся, що файл із анкетами " +
+    "(напр. seed-data.js) підключений у index.html ПЕРЕД script.js."
+  );
+}
+const SEED_PROFILES_SAFE =
+  (typeof SEED_PROFILES !== "undefined" && Array.isArray(SEED_PROFILES))
+    ? SEED_PROFILES
+    : [];
+
 let swipes = get(LS.swipes, {});
 let matches = get(LS.matches, []);
-let queue = SEED_PROFILES.filter(p => !(p.id in swipes));
+let queue = SEED_PROFILES_SAFE.filter(p => !(p.id in swipes));
 
 const showPassedBtn = document.getElementById("showPassedBtn");
 
@@ -559,7 +615,7 @@ function hasPassedProfiles(){
 }
 
 function rebuildQueue(){
-  queue = SEED_PROFILES.filter(p => !(p.id in swipes) && matchesFilters(p));
+  queue = SEED_PROFILES_SAFE.filter(p => !(p.id in swipes) && matchesFilters(p));
   renderDeck();
 }
 
@@ -738,7 +794,7 @@ function renderChatList(){
   chatsEmpty.hidden = matches.length > 0;
   const chats = get(LS.chats, {});
   matches.forEach(id=>{
-    const profile = SEED_PROFILES.find(p=>p.id === id);
+    const profile = SEED_PROFILES_SAFE.find(p=>p.id === id);
     if(!profile) return;
     const thread = chats[id] || [];
     const last = thread[thread.length - 1];
@@ -757,7 +813,7 @@ function renderChatList(){
 }
 
 function openThread(id){
-  const profile = SEED_PROFILES.find(p=>p.id === id);
+  const profile = SEED_PROFILES_SAFE.find(p=>p.id === id);
   if(!profile) return;
   chatListView.hidden = true;
   chatThreadView.hidden = false;
@@ -800,8 +856,15 @@ document.getElementById("threadForm").addEventListener("submit", e=>{
   renderThreadMessages(id);
 
   setTimeout(()=>{
+    /* ВИПРАВЛЕНО: та сама страховка, що й для SEED_PROFILES — якщо
+       AUTO_REPLIES ніде не визначено, підставляємо один нейтральний
+       варіант замість падіння з ReferenceError. */
+    const repliesSafe =
+      (typeof AUTO_REPLIES !== "undefined" && Array.isArray(AUTO_REPLIES) && AUTO_REPLIES.length)
+        ? AUTO_REPLIES
+        : ["Привіт 👋"];
     const chats2 = get(LS.chats, {});
-    chats2[id].push({from:"them", text: AUTO_REPLIES[Math.floor(Math.random()*AUTO_REPLIES.length)]});
+    chats2[id].push({from:"them", text: repliesSafe[Math.floor(Math.random()*repliesSafe.length)]});
     set(LS.chats, chats2);
     if(chatThreadView.dataset.activeId === id) renderThreadMessages(id);
   }, 1100);
@@ -917,13 +980,10 @@ function closePlaceModal(){
   placeModalOverlay.hidden = true;
 }
 
-// Закриття по кнопці-хрестику
 document.getElementById("placeModalCloseBtn").addEventListener("click", closePlaceModal);
-// Закриття по кліку на затемнений фон
 placeModalOverlay.addEventListener("click", e=>{
   if(e.target === placeModalOverlay) closePlaceModal();
 });
-// Закриття по Escape
 document.addEventListener("keydown", e=>{
   if(e.key === "Escape" && !placeModalOverlay.hidden) closePlaceModal();
 });
@@ -943,9 +1003,6 @@ function renderReviews(place){
 
 document.getElementById("reviewForm").addEventListener("submit", e=>{
   e.preventDefault();
-  /* ВИПРАВЛЕНО: раніше тут читалось неіснуюче поле #reviewAuthor, через що
-     відгук кидав помилку і форма ламалась. Автор відгуку — це поточний
-     користувач з його анкети (як і написано в підказці над формою). */
   const me = currentMe() || {};
   const author = me.name || "Гість";
   const text = document.getElementById("reviewText").value.trim();
