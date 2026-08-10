@@ -1,24 +1,27 @@
 /* ===================== ІНТРО-ВІДЕО ===================== */
 
 const introOverlay = document.getElementById("introOverlay");
-const introOverlay = document.getElementById("introOverlay");
 const introVideo = document.getElementById("introVideo");
 const introLogoFallback = document.getElementById("introLogoFallback");
 
 function hideIntro() {
   if (!introOverlay) return;
 
-  introOverlay.hidden = true;
-  introOverlay.style.display = "none";
-}
+  introOverlay.classList.add("intro-hidden");
 
-if (introOverlay) {
-  // Показуємо заставку рівно 1 секунду
   setTimeout(() => {
-    hideIntro();
-  }, 1000);
+    introOverlay.hidden = true;
+    introOverlay.style.display = "none";
+  }, 400);
 }
 
+// Заставка автоматично зникає через 1 секунду
+if (introOverlay) {
+  setTimeout(hideIntro, 1000);
+}
+
+// Якщо відео не завантажилось — показуємо логотип,
+// але заставка все одно зникне через 1 секунду
 if (introVideo) {
   introVideo.addEventListener("error", () => {
     introVideo.hidden = true;
@@ -28,311 +31,417 @@ if (introVideo) {
     }
   });
 }
+
+
 /* ===================== СХОВИЩЕ ===================== */
 
 const LS = {
-me: "nalyvay_me_v2",
-swipes: "nalyvay_swipes",
-matches: "nalyvay_matches",
-chats: "nalyvay_chats",
-places: "nalyvay_places_v2"
+  me: "nalyvay_me_v2",
+  swipes: "nalyvay_swipes",
+  matches: "nalyvay_matches",
+  chats: "nalyvay_chats",
+  places: "nalyvay_places_v2"
 };
-// ===================== SUPABASE =====================
-const SUPABASE_URL = "https://yecjmwgmfwqgxbiggeby.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_DIBPiv-9rJowQacsgEBMAw_8GvIxboP";
+
+
+/* ===================== SUPABASE ===================== */
+
+const SUPABASE_URL =
+  "https://yecjmwgmfwqgxbiggeby.supabase.co";
+
+const SUPABASE_ANON_KEY =
+  "sb_publishable_DIBPiv-9rJowQacsgEBMAw_8GvIxboP";
 
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
 
-function cryptoId(){ return "id-" + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
-function get(key, fallback){ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
-function set(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
-function escapeHtml(str){ const d = document.createElement("div"); d.textContent = str ?? ""; return d.innerHTML; }
 
-/* Читає файл фото як base64 data URL. Повертає null, якщо файл не обрано. */
-function readPhotoFile(inputEl){
-  return new Promise(resolve=>{
-    const file = inputEl && inputEl.files && inputEl.files[0];
-    if(!file){ resolve(null); return; }
-    if(file.size > 4 * 1024 * 1024){
-      alert("Фото завелике (максимум 4 МБ). Обери менший файл.");
-      resolve(null); return;
+function cryptoId() {
+  return "id-" +
+    Math.random().toString(36).slice(2, 10) +
+    Date.now().toString(36);
+}
+
+function get(key, fallback) {
+  const raw = localStorage.getItem(key);
+  return raw ? JSON.parse(raw) : fallback;
+}
+
+function set(key, val) {
+  localStorage.setItem(key, JSON.stringify(val));
+}
+
+function escapeHtml(str) {
+  const d = document.createElement("div");
+  d.textContent = str ?? "";
+  return d.innerHTML;
+}
+
+
+/* ===================== ФОТО ===================== */
+
+function readPhotoFile(inputEl) {
+  return new Promise(resolve => {
+    const file =
+      inputEl &&
+      inputEl.files &&
+      inputEl.files[0];
+
+    if (!file) {
+      resolve(null);
+      return;
     }
+
+    if (file.size > 4 * 1024 * 1024) {
+      alert("Фото завелике (максимум 4 МБ). Обери менший файл.");
+      resolve(null);
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = ()=> resolve(reader.result);
-    reader.onerror = ()=> resolve(null);
+
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+
     reader.readAsDataURL(file);
   });
 }
 
-/* ===================== СІД-ДАНІ ДЛЯ СВАЙПУ ===================== */
-
-const SEED_PROFILES = [
-  {id:"seed-1", name:"Оля", type:"person", gender:"жінка", language:"Українська", geo:"Черкаси, центр · 800 м", online:true, avatar:"💃", verified:true,
-    drinks:"Джин-тонік", food:"Суші", favoritePlace:"Бар «Хвиля»", bio:"Люблю тихі бари з хорошою музикою. 24 роки."},
-  {id:"seed-2", name:"Максим", type:"person", gender:"чоловік", language:"Українська", geo:"Черкаси, лівий берег · 1.2 км", online:true, avatar:"🕺", verified:false,
-    drinks:"Віскі, темне пиво", food:"Стейк, бургери", favoritePlace:"Craft Room", bio:"Настолки і келих віскі — ідеальний вечір. 29 років."},
-  {id:"seed-3", name:"«Три бариста»", type:"company", gender:null, language:"Українська", geo:"Черкаси, Митниця · 2.1 км", online:false, avatar:"☕", verified:true,
-    drinks:"Спешелті кава, вино ввечері", food:"Круасани, брускети", favoritePlace:"—", bio:"Команда кав'ярні шукає компанію після зміни."},
-  {id:"seed-4", name:"Настя", type:"person", gender:"жінка", language:"Українська", geo:"Черкаси, набережна · 600 м", online:true, avatar:"🙋‍♀️", verified:false,
-    drinks:"Просекко, сидр", food:"Тапас", favoritePlace:"Набережна, літні тераси", bio:"Обожнюю набережну ввечері та келих просекко. 22 роки."},
-  {id:"seed-5", name:"Craft Room", type:"company", gender:null, language:"Українська", geo:"Черкаси, центр · 950 м", online:true, avatar:"🍻", verified:true,
-    drinks:"20 сортів крафтового пива", food:"Снеки до пива", favoritePlace:"—", bio:"Бар шукає компанії на дегустації нових сортів."},
-  {id:"seed-6", name:"Дмитро", type:"person", gender:"чоловік", language:"English", geo:"Черкаси, Соснівка · 3 км", online:false, avatar:"🧔", verified:false,
-    drinks:"Ром, мохіто", food:"Мексиканська кухня", favoritePlace:"Tiki Bar", bio:"Люблю тропічну музику і хороший ром. 31 рік."}
-];
-
-const AUTO_REPLIES = [
-  "Привіт! 🍸 Куди сьогодні підемо?",
-  "О, звучить непогано, я за!",
-  "А ти вже був(-ла) у «Хвилі»? Раджу 🍹",
-  "Давай завтра ввечері?",
-  "Го по пиву в п'ятницю 🍻"
-];
 
 /* ===================== РЕЄСТРАЦІЯ ===================== */
 
 const regOverlay = document.getElementById("regOverlay");
 const regForm = document.getElementById("regForm");
 
-function currentMe(){ return get(LS.me, null); }
+function currentMe() {
+  return get(LS.me, null);
+}
 
-function showApp(){
-  regOverlay.hidden = true;
+function showApp() {
+  if (regOverlay) {
+    regOverlay.hidden = true;
+  }
+
   fillProfileFormFromMe();
 }
 
-function renderAvatarPreview(me){
+function renderAvatarPreview(me) {
   const el = document.getElementById("avatarPreview");
-  if(me && me.photo){
-    el.innerHTML = `<img src="${me.photo}" alt="Фото профілю">`;
+
+  if (!el) return;
+
+  if (me && me.photo) {
+    el.innerHTML =
+      `<img src="${me.photo}" alt="Фото профілю">`;
   } else {
-    el.textContent = (me && me.avatar) || "🙂";
+    el.textContent =
+      (me && me.avatar) || "🙂";
   }
 }
 
-function randInt(min, max){ return Math.floor(Math.random() * (max - min + 1)) + min; }
-
-/* Генерує простий приклад: +, -, *, / з цілими невід'ємними результатами */
-function generateMathChallenge(){
-  const ops = ["+", "-", "×", "÷"];
-  const op = ops[randInt(0, 3)];
-  let a, b, answer;
-  switch(op){
-    case "+": a = randInt(1, 20); b = randInt(1, 20); answer = a + b; break;
-    case "-": a = randInt(5, 20); b = randInt(1, a); answer = a - b; break;
-    case "×": a = randInt(2, 9); b = randInt(2, 9); answer = a * b; break;
-    case "÷": b = randInt(2, 9); answer = randInt(2, 9); a = b * answer; break;
-  }
-  return {a, b, op, answer};
-}
-
-let verifyChallenge = null;
-
-function newVerifyChallenge(){
-  verifyChallenge = generateMathChallenge();
-  document.getElementById("verifyQuestion").textContent = `${verifyChallenge.a} ${verifyChallenge.op} ${verifyChallenge.b} = ?`;
-  document.getElementById("verifyAnswer").value = "";
-  document.getElementById("verifyMsg").hidden = true;
-}
-
-function refreshVerifyUI(){
-  const me = currentMe() || {};
-  const badge = document.getElementById("verifyBadgeText");
-  const challengeBox = document.getElementById("verifyChallenge");
-  if(me.verified){
-    badge.innerHTML = "✓ Профіль верифіковано";
-    badge.classList.add("verified");
-    challengeBox.hidden = true;
-  } else {
-    badge.textContent = "Профіль не верифікований";
-    badge.classList.remove("verified");
-    challengeBox.hidden = false;
-    newVerifyChallenge();
-  }
-}
-
-document.getElementById("verifyCheckBtn").addEventListener("click", ()=>{
-  const raw = document.getElementById("verifyAnswer").value.trim();
-  const msg = document.getElementById("verifyMsg");
-  if(raw === ""){
-    msg.textContent = "Введи відповідь на приклад.";
-    msg.className = "verify-msg verify-msg-err";
-    msg.hidden = false;
-    return;
-  }
-  const val = Number(raw);
-  if(val === verifyChallenge.answer){
-    const me = currentMe() || {};
-    me.verified = true;
-    set(LS.me, me);
-    msg.textContent = "Готово! Профіль верифіковано ✓";
-    msg.className = "verify-msg verify-msg-ok";
-    msg.hidden = false;
-    setTimeout(()=> refreshVerifyUI(), 900);
-  } else {
-    msg.textContent = "Неправильно, спробуй новий приклад нижче.";
-    msg.className = "verify-msg verify-msg-err";
-    msg.hidden = false;
-    newVerifyChallenge();
-  }
-});
-
-function fillProfileFormFromMe(){
+function fillProfileFormFromMe() {
   const me = currentMe();
-  if(!me) return;
-  document.getElementById("pName").value = me.name || "";
-  document.getElementById("pAge").value = me.age || "";
-  document.getElementById("pType").value = me.type || "person";
-  document.getElementById("pGender").value = me.gender || "жінка";
-  document.getElementById("pLanguage").value = me.language || "Українська";
-  document.getElementById("pSettlementType").value = me.settlementType || "Місто";
-  document.getElementById("pSettlementName").value = me.settlementName || "";
-  document.getElementById("pDrinks").value = me.drinks || "";
-  document.getElementById("pFood").value = me.food || "";
-  document.getElementById("pFavPlace").value = me.favoritePlace || "";
-  document.getElementById("pHobbies").value = me.hobbies || "";
-  document.getElementById("pBio").value = me.bio || "";
-  document.getElementById("onlineToggle").checked = me.online !== false;
-  renderAvatarPreview(me);
-  refreshVerifyUI();
-}
-let pendingRegistration = null;
 
-regForm.addEventListener("submit", async e => {
-  e.preventDefault();
+  if (!me) return;
 
-  const email = document.getElementById("regEmail").value.trim();
-
-  if (!email) {
-    alert("Введи Email");
-    return;
-  }
-
-  const photo = await readPhotoFile(
-    document.getElementById("regPhoto")
-  );
-
-  pendingRegistration = {
-    name: document.getElementById("regName").value.trim(),
-    email: email,
-    age: Number(document.getElementById("regAge").value),
-    type: document.getElementById("regType").value,
-    gender: document.getElementById("regGender").value,
-    language: document.getElementById("regLanguage").value,
-    settlementType: document.getElementById("regSettlementType").value,
-    settlementName: document.getElementById("regSettlementName").value.trim(),
-    drinks: document.getElementById("regDrinks").value.trim(),
-    food: document.getElementById("regFood").value.trim(),
-    favoritePlace: document.getElementById("regFavPlace").value.trim(),
-    hobbies: document.getElementById("regHobbies").value.trim(),
-    bio: document.getElementById("regBio").value.trim(),
-    online: true,
-    avatar: "🙂",
-    photo: photo || null,
-    verified: false
+  const fields = {
+    pName: me.name || "",
+    pAge: me.age || "",
+    pType: me.type || "person",
+    pGender: me.gender || "жінка",
+    pLanguage: me.language || "Українська",
+    pSettlementType: me.settlementType || "Місто",
+    pSettlementName: me.settlementName || "",
+    pDrinks: me.drinks || "",
+    pFood: me.food || "",
+    pFavPlace: me.favoritePlace || "",
+    pHobbies: me.hobbies || "",
+    pBio: me.bio || ""
   };
 
-  // Зберігаємо анкету, бо після переходу з Email
-  // сторінка може перезавантажитися   
-  localStorage.setItem(
-    "nalyvay_pending_registration",
-    JSON.stringify(pendingRegistration)
-  );
+  Object.entries(fields).forEach(([id, value]) => {
+    const el = document.getElementById(id);
 
-  const { error } = await supabaseClient.auth.signInWithOtp({
-    email: email,
-    options: {
-      shouldCreateUser: true,
-      emailRedirectTo: "https://anastasiakocubenko39-crypto.github.io/nalyvay/"
+    if (el) {
+      el.value = value;
     }
   });
 
-  if (error) {
-    console.error("OTP error:", error);
-    alert("Не вдалося надіслати лист: " + error.message);
-    return;
+  const onlineToggle =
+    document.getElementById("onlineToggle");
+
+  if (onlineToggle) {
+    onlineToggle.checked = me.online !== false;
   }
 
-  // Показуємо повідомлення на екрані
-  const confirmMessage =
-    document.getElementById("emailConfirmMessage");
-
-  const confirmAddress =
-    document.getElementById("emailConfirmAddress");
-
-  confirmAddress.textContent = email;
-  confirmMessage.hidden = false;
-
-  // Ховаємо кнопку, щоб користувач не надсилав багато листів
-if (error) {
-  console.error("OTP error:", error);
-  alert("Не вдалося надіслати лист: " + error.message);
-  return;
+  renderAvatarPreview(me);
 }
 
-const confirmMessage =
-  document.getElementById("emailConfirmMessage");
 
-const confirmAddress =
-  document.getElementById("emailConfirmAddress");
+/* ===================== ВІДПРАВКА EMAIL ===================== */
 
-if (confirmAddress) {
-  confirmAddress.textContent = email;
+let pendingRegistration = null;
+
+if (regForm) {
+
+  regForm.addEventListener("submit", async e => {
+
+    e.preventDefault();
+
+    const email =
+      document.getElementById("regEmail").value.trim();
+
+    if (!email) {
+      alert("Введи Email");
+      return;
+    }
+
+    const photo =
+      await readPhotoFile(
+        document.getElementById("regPhoto")
+      );
+
+    pendingRegistration = {
+      name:
+        document.getElementById("regName").value.trim(),
+
+      email: email,
+
+      age:
+        Number(
+          document.getElementById("regAge").value
+        ),
+
+      type:
+        document.getElementById("regType").value,
+
+      gender:
+        document.getElementById("regGender").value,
+
+      language:
+        document.getElementById("regLanguage").value,
+
+      settlementType:
+        document.getElementById("regSettlementType").value,
+
+      settlementName:
+        document
+          .getElementById("regSettlementName")
+          .value
+          .trim(),
+
+      drinks:
+        document.getElementById("regDrinks").value.trim(),
+
+      food:
+        document.getElementById("regFood").value.trim(),
+
+      favoritePlace:
+        document
+          .getElementById("regFavPlace")
+          .value
+          .trim(),
+
+      hobbies:
+        document
+          .getElementById("regHobbies")
+          .value
+          .trim(),
+
+      bio:
+        document
+          .getElementById("regBio")
+          .value
+          .trim(),
+
+      online: true,
+      avatar: "🙂",
+      photo: photo || null,
+      verified: false
+    };
+
+
+    /* ВАЖЛИВО:
+       Зберігаємо анкету перед переходом
+       користувача в Email.
+    */
+
+    localStorage.setItem(
+      "nalyvay_pending_registration",
+      JSON.stringify(pendingRegistration)
+    );
+
+
+    /* Відправляємо Magic Link */
+
+    const { error } =
+      await supabaseClient.auth.signInWithOtp({
+
+        email: email,
+
+        options: {
+          shouldCreateUser: true,
+
+          emailRedirectTo:
+            "https://anastasiakocubenko39-crypto.github.io/nalyvay/"
+        }
+
+      });
+
+
+    /* Якщо Supabase повернув помилку */
+
+    if (error) {
+
+      console.error(
+        "Supabase email error:",
+        error
+      );
+
+      alert(
+        "Не вдалося надіслати лист: " +
+        error.message
+      );
+
+      return;
+    }
+
+
+    /* Показуємо повідомлення */
+
+    const confirmMessage =
+      document.getElementById(
+        "emailConfirmMessage"
+      );
+
+    const confirmAddress =
+      document.getElementById(
+        "emailConfirmAddress"
+      );
+
+
+    if (confirmAddress) {
+      confirmAddress.textContent = email;
+    }
+
+
+    if (confirmMessage) {
+      confirmMessage.hidden = false;
+    }
+
+
+    /* Ховаємо кнопку,
+       щоб не відправляти багато листів */
+
+    const submitButton =
+      regForm.querySelector(
+        'button[type="submit"]'
+      );
+
+    if (submitButton) {
+      submitButton.hidden = true;
+    }
+
+  });
+
 }
 
-if (confirmMessage) {
-  confirmMessage.hidden = false;
-}
 
-// Ховаємо кнопку, щоб не надсилати багато листів
-const submitButton =
-  regForm.querySelector('button[type="submit"]');
-
-if (submitButton) {
-  submitButton.hidden = true;
-}
-});
+/* ===================== ПЕРЕВІРКА EMAIL ===================== */
 
 async function checkEmailConfirmation() {
-  const {
-    data: { session }
-  } = await supabaseClient.auth.getSession();
-
-  if (!session || !session.user) {
-    return;
-  }
-
-  const pending =
-    localStorage.getItem("nalyvay_pending_registration");
-
-  if (!pending) {
-    return;
-  }
 
   try {
-    const registration = JSON.parse(pending);
 
-    registration.email = session.user.email;
+    const {
+      data: { session },
+      error
+    } =
+      await supabaseClient.auth.getSession();
+
+
+    if (error) {
+
+      console.error(
+        "Помилка отримання сесії:",
+        error
+      );
+
+      return;
+    }
+
+
+    /* Користувач ще не підтвердив Email */
+
+    if (!session || !session.user) {
+      return;
+    }
+
+
+    /* Беремо збережену анкету */
+
+    const pending =
+      localStorage.getItem(
+        "nalyvay_pending_registration"
+      );
+
+
+    if (!pending) {
+      return;
+    }
+
+
+    const registration =
+      JSON.parse(pending);
+
+
+    /* Email підтверджений */
+
+    registration.email =
+      session.user.email;
+
     registration.verified = true;
 
-    set(LS.me, registration);
 
-    localStorage.removeItem("nalyvay_pending_registration");
+    /* Створюємо профіль */
+
+    set(
+      LS.me,
+      registration
+    );
+
+
+    /* Тимчасові дані більше не потрібні */
+
+    localStorage.removeItem(
+      "nalyvay_pending_registration"
+    );
+
 
     pendingRegistration = null;
 
+
+    /* Відкриваємо застосунок */
+
     showApp();
 
+
   } catch (error) {
+
     console.error(
       "Помилка відновлення реєстрації:",
       error
     );
+
   }
+
 }
+
+
+/* Перевіряємо, чи повернувся
+   користувач після підтвердження Email */
 
 checkEmailConfirmation();
 
