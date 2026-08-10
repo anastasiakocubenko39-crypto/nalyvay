@@ -203,7 +203,6 @@ function fillProfileFormFromMe(){
   renderAvatarPreview(me);
   refreshVerifyUI();
 }
-
 let pendingRegistration = null;
 
 regForm.addEventListener("submit", async e => {
@@ -241,58 +240,38 @@ regForm.addEventListener("submit", async e => {
   const { error } = await supabaseClient.auth.signInWithOtp({
     email: email,
     options: {
-      shouldCreateUser: true
+      shouldCreateUser: true,
+      emailRedirectTo: "https://anastasiakocubenko39-crypto.github.io/nalyvay/"
     }
   });
 
   if (error) {
     console.error("OTP error:", error);
-    alert("Не вдалося надіслати код: " + error.message);
+    alert("Не вдалося надіслати лист: " + error.message);
     return;
   }
 
-  document.getElementById("otpSection").hidden = false;
+  const otpSection = document.getElementById("otpSection");
+
+  if (otpSection) {
+    otpSection.hidden = false;
+  }
 
   const otpMessage = document.getElementById("otpMessage");
-  otpMessage.textContent = "Код підтвердження надіслано на " + email;
-  otpMessage.hidden = false;
+
+  if (otpMessage) {
+    otpMessage.textContent =
+      "Лист для підтвердження надіслано на " + email +
+      ". Відкрий лист та натисни «Confirm email address».";
+    otpMessage.hidden = false;
+  }
+
+  alert(
+    "Лист для підтвердження надіслано на " +
+    email +
+    ". Натисни кнопку «Confirm email address» у листі."
+  );
 });
-document.getElementById("verifyOtpBtn").addEventListener("click", async () => {
-  const email = document.getElementById("regEmail").value.trim();
-  const token = document.getElementById("regOtp").value.trim();
-
-  if (!token) {
-    alert("Введи код із Email");
-    return;
-  }
-
-  const { data, error } = await supabaseClient.auth.verifyOtp({
-    email: email,
-    token: token,
-    type: "email"
-  });
-
-  if (error) {
-    console.error("Verify OTP error:", error);
-    alert("Неправильний або прострочений код: " + error.message);
-    return;
-  }
-
-  if (!pendingRegistration) {
-    alert("Дані реєстрації не знайдено. Спробуй зареєструватися ще раз.");
-    return;
-  }
-
-  pendingRegistration.verified = true;
-
-  set(LS.me, pendingRegistration);
-
-  pendingRegistration = null;
-
-  showApp();
-});
-
-// інакше regOverlay лишається видимою (за замовчуванням hidden атрибута немає)
 
 /* ===================== НАВІГАЦІЯ ===================== */
 
