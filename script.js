@@ -275,9 +275,6 @@ regForm.addEventListener("submit", async e => {
   confirmMessage.hidden = false;
 
   // Ховаємо кнопку, щоб користувач не надсилав багато листів
-  e.target.querySelector('button[type="submit"]').hidden = true;
-});
-
 if (error) {
   console.error("OTP error:", error);
   alert("Не вдалося надіслати лист: " + error.message);
@@ -298,6 +295,7 @@ if (confirmMessage) {
   confirmMessage.hidden = false;
 }
 
+// Ховаємо кнопку, щоб не надсилати багато листів
 const submitButton =
   regForm.querySelector('button[type="submit"]');
 
@@ -305,6 +303,7 @@ if (submitButton) {
   submitButton.hidden = true;
 }
 });
+
 async function checkEmailConfirmation() {
   const {
     data: { session }
