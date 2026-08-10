@@ -63,91 +63,98 @@
       <label>Ім'я <!-- text, обов'язкове: ім'я або назва компанії, показується на картці -->
         <input type="text" id="regName" required placeholder="Як тебе звати">
       </label>
-      
-      <label>Email
-        <input type="email" id="regEmail" required placeholder="you@example.com" autocomplete="email">
-      </label>
-      
-      <div class="form-row">
-        <label>Вік <!-- number 18–99, обов'язкове -->
-          <input type="number" id="regAge" min="18" max="99" required placeholder="25">
-        </label>
-        
-        <label>Тип анкети <!-- визначає бейдж "людина"/"заклад" на картці -->
-          <select id="regType">
-            <option value="person">Людина</option>
-            <option value="company">Компанія</option>
-          </select>
-        </label>
-      </div>
-      
-      <div class="form-row">
-        <label>Стать
-          <select id="regGender">
-            <option value="жінка">Жіноча</option>
-            <option value="чоловік">Чоловіча</option>
-            <option value="інша">Інша</option>
-          </select>
-        </label>
-        
-        <label>Мова спілкування
-          <select id="regLanguage">
-            <option value="Українська">Українська</option>
-            <option value="English">English</option>
-            <option value="Інша">Інша</option>
-          </select>
-        </label>
-      </div>
-      
-      <div class="form-row">
-        <label>Тип населеного пункту
-          <select id="regSettlementType">
-            <option value="Місто">Місто</option>
-            <option value="СМТ">СМТ</option>
-            <option value="Село">Село</option>
-          </select>
-        </label>
-        
-        <label>Де зараз
-          <input type="text" id="regSettlementName" required placeholder="Черкаси">
-        </label>
-      </div>
-      <label>🍺 Що любиш пити
-        <input type="text" id="regDrinks" required placeholder="Джин-тонік, крафтове пиво">
-      </label>
-      <label>🍴 Що любиш їсти
-        <input type="text" id="regFood" placeholder="Суші, бургери">
-      </label>
-      <label>⭐ Улюблений заклад
-        <input type="text" id="regFavPlace" placeholder="Бар «Хвиля»">
-      </label>
-      <label>🚶 Куди любиш ходити / хобі
-        <input type="text" id="regHobbies" placeholder="Бари з живою музикою, настолки, кава вранці">
-      </label>
-      <label>Фото профілю
-        <input type="file" accept="image/*" id="regPhoto">
-      </label>
-      <label>Про себе
-        <textarea id="regBio" rows="2" placeholder="Пара речень для контексту"></textarea>
-      </label>
-      
-      <div id="otpSection" hidden>
-  <label>Код з email
+  <label>Email
+  <input type="email" id="regEmail" required placeholder="you@example.com" autocomplete="email">
+</label>
+
+<div class="form-row">
+  <label>Вік
+    <input type="number" id="regAge" min="18" max="99" required placeholder="25">
+  </label>
+
+  <label>Тип анкети
+    <select id="regType">
+      <option value="person">Людина</option>
+      <option value="company">Компанія</option>
+    </select>
+  </label>
+</div>
+
+<div class="form-row">
+  <label>Стать
+    <select id="regGender">
+      <option value="жінка">Жіноча</option>
+      <option value="чоловік">Чоловіча</option>
+      <option value="інша">Інша</option>
+    </select>
+  </label>
+
+  <label>Мова спілкування
+    <select id="regLanguage">
+      <option value="Українська">Українська</option>
+      <option value="English">English</option>
+      <option value="Інша">Інша</option>
+    </select>
+  </label>
+</div>
+
+<div class="form-row">
+  <label>Тип населеного пункту
+    <select id="regSettlementType">
+      <option value="Місто">Місто</option>
+      <option value="СМТ">СМТ</option>
+      <option value="Село">Село</option>
+    </select>
+  </label>
+
+  <label>Де зараз
+    <input type="text" id="regSettlementName" required placeholder="Черкаси">
+  </label>
+</div>
+
+<label>🍺 Що любиш пити
+  <input type="text" id="regDrinks" required placeholder="Джин-тонік, крафтове пиво">
+</label>
+
+<label>🍴 Що любиш їсти
+  <input type="text" id="regFood" placeholder="Суші, бургери">
+</label>
+
+<label>⭐ Улюблений заклад
+  <input type="text" id="regFavPlace" placeholder="Бар «Хвиля»">
+</label>
+
+<label>🚶 Куди любиш ходити / хобі
+  <input type="text" id="regHobbies" placeholder="Бари з живою музикою, настолки, кава вранці">
+</label>
+
+<label>Фото профілю
+  <input type="file" accept="image/*" id="regPhoto">
+</label>
+
+<label>Про себе
+  <textarea id="regBio" rows="2" placeholder="Пара речень для контексту"></textarea>
+</label>
+
+<div id="otpSection" hidden>
+  <label>Код із Email
     <input
       type="text"
       id="regOtp"
       inputmode="numeric"
       autocomplete="one-time-code"
       maxlength="6"
-      placeholder="Введи 6-значний код">
+      placeholder="Введи 6-значний код"
+    >
   </label>
 
-  <button type="button" id="verifyOtpBtn" class="btn btn-primary btn-full">
-    Підтвердити email
+  <button type="button" class="btn btn-primary btn-full" id="verifyOtpBtn">
+    Підтвердити Email
   </button>
 
-  <p id="otpMsg" hidden></p>
+  <p id="otpMessage" hidden></p>
 </div>
+      
       <button type="submit" class="btn btn-primary btn-full">Почати знайомитись</button>
     </form>
   </div>
