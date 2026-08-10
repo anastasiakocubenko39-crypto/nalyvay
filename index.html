@@ -38,15 +38,18 @@
 </div>
 
 <!-- ===================== ІНТРО-ВІДЕО (на весь екран, ~6-7 сек) ===================== -->
-<div class="intro-overlay" id="introOverlay">
-  <video id="introVideo" autoplay muted playsinline preload="auto">
-    <source src="intro.mp4" type="video/mp4">
-  </video>
-  <div class="intro-logo-fallback" id="introLogoFallback" hidden>
-    <img src="logo.png" alt="НАЛИВАЙ" onerror="this.style.display='none'; this.parentElement.classList.add('text-only')">
-    <span class="intro-fallback-text">НАЛИВАЙ</span>
-  </div>
-  <button type="button" class="intro-skip" id="introSkipBtn">Пропустити</button>
+<div id="introOverlay">
+    <video id="introVideo" autoplay muted playsinline>
+        <source src="intro.mp4" type="video/mp4">
+    </video>
+
+    <button id="introSkipBtn" type="button">
+        Пропустити
+    </button>
+
+    <div id="introLogoFallback" hidden>
+        NALYVAY
+    </div>
 </div>
 
 <!-- ===================== РЕЄСТРАЦІЯ (обов'язкова, показується перший раз) ===================== -->
