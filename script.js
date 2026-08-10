@@ -1,100 +1,52 @@
-/* ====================================================================
-   НАЛИВАЙ — логіка застосунку (script.js)
-   Коментарі українською стоять біля кожної функції/значущого блоку та
-   пояснюють, за що він відповідає. Тривіальні рядки (закриваючі дужки,
-   прості присвоєння) окремо не коментуються — коментар стоїть там, де
-   є що пояснити.
-   ==================================================================== */
-
 /* ===================== ІНТРО-ВІДЕО ===================== */
-/* Файл відео має називатись intro.mp4 і лежати в тій самій папці, що й index.html.
-   Якщо файл відсутній або браузер не може його відтворити — покажемо лого/напис
-   і через 2 секунди все одно відкриємо застосунок, щоб нікого не заблокувати. */
 
-(function initIntro(){
-  const introOverlay = document.getElementById("introOverlay");
-  const introVideo = document.getElementById("introVideo");
-  const introSkipBtn = document.getElementById("introSkipBtn");
-  const introLogoFallback = document.getElementById("introLogoFallback");
-  if(!introOverlay) return;
+const introOverlay = document.getElementById("introOverlay");
+const introVideo = document.getElementById("introVideo");
+const introSkipBtn = document.getElementById("introSkipBtn");
+const introLogoFallback = document.getElementById("introLogoFallback");
 
-  let done = false;
-  function finishIntro(){
-    if(done) return;
-    done = true;
-    introOverlay.classList.add("intro-hide");
-    setTimeout(()=> introOverlay.remove(), 650);
-  }
-
-  introSkipBtn?.addEventListener("click", finishIntro);
-  introVideo?.addEventListener("ended", finishIntro);
-  introVideo?.addEventListener("error", ()=>{
-    introVideo.hidden = true;
-    if(introLogoFallback) introLogoFallback.hidden = false;
-    setTimeout(finishIntro, 2000);
-  });
-  const playPromise = introVideo?.play?.();
-  if(playPromise && playPromise.catch){
-    playPromise.catch(()=>{
-      introVideo.hidden = true;
-      if(introLogoFallback) introLogoFallback.hidden = false;
-      setTimeout(finishIntro, 2000);
-    });
-  }
-  // Аварійний запобіжник: застосунок ніколи не блокується довше ~7.5 сек.
-  setTimeout(finishIntro, 7500);
-})();
-
-/* ===================== БЕЗПЕЧНА ПРИВ'ЯЗКА ПОДІЙ =====================
-   ВАЖЛИВО (виправлення бага з кнопкою "Прев'ю"): раніше всі addEventListener
-   викликались напряму на document.getElementById(...). Якщо ХОЧА Б ОДИН
-   елемент на сторінці не знаходився (наприклад, через ручне редагування
-   розмітки, відсутній id, чи інший рідкісний edge-case), весь скрипт
-   зупинявся з помилкою в консолі — і ВСІ обробники нижче по файлу (в тому
-   числі кнопка "Прев'ю анкети", яка описана ближче до кінця файлу) просто
-   ніколи не реєструвались. Тому кнопка "переставала працювати" без видимої
-   причини. Функція on() нижче ловить таку помилку локально й пише
-   попередження в консоль, не ламаючи решту застосунку. */
-function on(id, event, handler){
-  const el = document.getElementById(id);
-  if(!el){
-    console.warn(`[НАЛИВАЙ] Елемент #${id} не знайдено — обробник "${event}" не підключено.`);
-    return null;
-  }
-  el.addEventListener(event, handler);
-  return el;
+function hideIntro(){
+  introOverlay.classList.add("intro-hidden");
+  setTimeout(()=>{ introOverlay.hidden = true; }, 400); // час на CSS-анімацію зникнення, якщо є
 }
-function qsa(selector){ return Array.from(document.querySelectorAll(selector)); }
+
+// кнопка "Пропустити"
+introSkipBtn.addEventListener("click", hideIntro);
+
+// відео саме закінчилось — теж ховаємо інтро
+introVideo.addEventListener("ended", hideIntro);
+
+// якщо відео не завантажилось (немає файлу intro.mp4) — показуємо лого-заглушку
+// і одразу ховаємо інтро через 2 секунди, щоб не блокувати застосунок
+introVideo.addEventListener("error", ()=>{
+  introVideo.hidden = true;
+  introLogoFallback.hidden = false;
+  setTimeout(hideIntro, 2000);
+});
 
 /* ===================== СХОВИЩЕ ===================== */
 
 const LS = {
-  me: "nalyvay_me_v2",
-  swipes: "nalyvay_swipes",
-  matches: "nalyvay_matches",
-  chats: "nalyvay_chats",
-  places: "nalyvay_places_v5"
+me: "nalyvay_me_v2",
+swipes: "nalyvay_swipes",
+matches: "nalyvay_matches",
+chats: "nalyvay_chats",
+places: "nalyvay_places_v2"
 };
+// ===================== SUPABASE =====================
+const SUPABASE_URL = "https://yecjmwgmfwqgxbiggeby.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_DIBPiv-9rJowQacsgEBMAw_8GvIxboP";
+
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
+
 
 function cryptoId(){ return "id-" + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
 function get(key, fallback){ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
 function set(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
 function escapeHtml(str){ const d = document.createElement("div"); d.textContent = str ?? ""; return d.innerHTML; }
-
-/* Хешування пароля через Web Crypto (SHA-256). Пароль у відкритому вигляді ніколи не зберігається.
-   ВАЖЛИВО: це захищає локальне сховище на пристрої, але це НЕ повноцінна серверна автентифікація —
-   дані все одно лежать лише в браузері користувача. Для реального захисту (вхід з різних пристроїв,
-   шифрування на сервері) потрібен бекенд, наприклад Supabase Auth. */
-async function hashText(text){
-  try{
-    const enc = new TextEncoder().encode(text);
-    const buf = await crypto.subtle.digest("SHA-256", enc);
-    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
-  }catch(err){
-    console.error("Хешування не вдалося:", err);
-    return null;
-  }
-}
 
 /* Читає файл фото як base64 data URL. Повертає null, якщо файл не обрано. */
 function readPhotoFile(inputEl){
@@ -112,29 +64,21 @@ function readPhotoFile(inputEl){
   });
 }
 
-/* ===================== СІД-ДАНІ ДЛЯ СВАЙПУ (тестові анкети, вшиті в код) ===================== */
+/* ===================== СІД-ДАНІ ДЛЯ СВАЙПУ ===================== */
 
 const SEED_PROFILES = [
   {id:"seed-1", name:"Оля", type:"person", gender:"жінка", language:"Українська", geo:"Черкаси, центр · 800 м", online:true, avatar:"💃", verified:true,
     drinks:"Джин-тонік", food:"Суші", favoritePlace:"Бар «Хвиля»", bio:"Люблю тихі бари з хорошою музикою. 24 роки."},
   {id:"seed-2", name:"Максим", type:"person", gender:"чоловік", language:"Українська", geo:"Черкаси, лівий берег · 1.2 км", online:true, avatar:"🕺", verified:false,
-    drinks:"Віскі, темне пиво", food:"Стейк, бургери", favoritePlace:"Oskar", bio:"Настолки і келих віскі — ідеальний вечір. 29 років."},
+    drinks:"Віскі, темне пиво", food:"Стейк, бургери", favoritePlace:"Craft Room", bio:"Настолки і келих віскі — ідеальний вечір. 29 років."},
   {id:"seed-3", name:"«Три бариста»", type:"company", gender:null, language:"Українська", geo:"Черкаси, Митниця · 2.1 км", online:false, avatar:"☕", verified:true,
     drinks:"Спешелті кава, вино ввечері", food:"Круасани, брускети", favoritePlace:"—", bio:"Команда кав'ярні шукає компанію після зміни."},
   {id:"seed-4", name:"Настя", type:"person", gender:"жінка", language:"Українська", geo:"Черкаси, набережна · 600 м", online:true, avatar:"🙋‍♀️", verified:false,
-    drinks:"Просекко, сидр", food:"Тапас", favoritePlace:"Бочка", bio:"Обожнюю пляж «Бочка» ввечері та келих просекко. 22 роки."},
-  {id:"seed-5", name:"Bierstube", type:"company", gender:null, language:"Українська", geo:"Черкаси, центр · 950 м", online:true, avatar:"🍻", verified:true,
-    drinks:"20 сортів крафтового пива", food:"Снеки до пива", favoritePlace:"—", bio:"Пивний паб шукає компанії на дегустації нових сортів."},
+    drinks:"Просекко, сидр", food:"Тапас", favoritePlace:"Набережна, літні тераси", bio:"Обожнюю набережну ввечері та келих просекко. 22 роки."},
+  {id:"seed-5", name:"Craft Room", type:"company", gender:null, language:"Українська", geo:"Черкаси, центр · 950 м", online:true, avatar:"🍻", verified:true,
+    drinks:"20 сортів крафтового пива", food:"Снеки до пива", favoritePlace:"—", bio:"Бар шукає компанії на дегустації нових сортів."},
   {id:"seed-6", name:"Дмитро", type:"person", gender:"чоловік", language:"English", geo:"Черкаси, Соснівка · 3 км", online:false, avatar:"🧔", verified:false,
-    drinks:"Ром, мохіто", food:"Мексиканська кухня", favoritePlace:"MONIKA.2049", bio:"Люблю тропічну музику і хороший ром. 31 рік."},
-  {id:"seed-7", name:"Аліна", type:"person", gender:"жінка", language:"Українська", geo:"Черкаси, Дашковича · 1.4 км", online:true, avatar:"👩", verified:true,
-    drinks:"Апероль шприц, просекко", food:"Італійська кухня", favoritePlace:"Escobar", bio:"Обожнюю літні тераси й гарну кухню в центрі. 27 років."},
-  {id:"seed-8", name:"Богдан", type:"person", gender:"чоловік", language:"Українська", geo:"Черкаси, Хрещатик · 500 м", online:true, avatar:"🧑", verified:false,
-    drinks:"Настоянки, крафтове пиво", food:"Українська кухня", favoritePlace:"Рубар", bio:"Покажу всі найкращі бари на Хрещатику. 30 років."},
-  {id:"seed-9", name:"Ілона", type:"person", gender:"жінка", language:"Українська", geo:"Черкаси, Смілянська · 1.1 км", online:true, avatar:"👩‍🦱", verified:true,
-    drinks:"Наливки, вишнева кава", food:"Круасани", favoritePlace:"П'яна Вишня", bio:"Фанатка вишневих наливок і затишних кав'ярень."},
-  {id:"seed-10", name:"Ірина", type:"person", gender:"жінка", language:"English", geo:"Черкаси, центр · 900 м", online:false, avatar:"👩‍🦰", verified:false,
-    drinks:"Кальян, чай з бергамотом", food:"Азійська кухня", favoritePlace:"Туман", bio:"Люблю лаунж-бари з хорошим освітленням і плейлистом. 26 років."}
+    drinks:"Ром, мохіто", food:"Мексиканська кухня", favoritePlace:"Tiki Bar", bio:"Люблю тропічну музику і хороший ром. 31 рік."}
 ];
 
 const AUTO_REPLIES = [
@@ -153,13 +97,12 @@ const regForm = document.getElementById("regForm");
 function currentMe(){ return get(LS.me, null); }
 
 function showApp(){
-  if(regOverlay) regOverlay.hidden = true;
+  regOverlay.hidden = true;
   fillProfileFormFromMe();
 }
 
 function renderAvatarPreview(me){
   const el = document.getElementById("avatarPreview");
-  if(!el) return;
   if(me && me.photo){
     el.innerHTML = `<img src="${me.photo}" alt="Фото профілю">`;
   } else {
@@ -187,19 +130,15 @@ let verifyChallenge = null;
 
 function newVerifyChallenge(){
   verifyChallenge = generateMathChallenge();
-  const q = document.getElementById("verifyQuestion");
-  const a = document.getElementById("verifyAnswer");
-  const m = document.getElementById("verifyMsg");
-  if(q) q.textContent = `${verifyChallenge.a} ${verifyChallenge.op} ${verifyChallenge.b} = ?`;
-  if(a) a.value = "";
-  if(m) m.hidden = true;
+  document.getElementById("verifyQuestion").textContent = `${verifyChallenge.a} ${verifyChallenge.op} ${verifyChallenge.b} = ?`;
+  document.getElementById("verifyAnswer").value = "";
+  document.getElementById("verifyMsg").hidden = true;
 }
 
 function refreshVerifyUI(){
   const me = currentMe() || {};
   const badge = document.getElementById("verifyBadgeText");
   const challengeBox = document.getElementById("verifyChallenge");
-  if(!badge || !challengeBox) return;
   if(me.verified){
     badge.innerHTML = "✓ Профіль верифіковано";
     badge.classList.add("verified");
@@ -212,7 +151,7 @@ function refreshVerifyUI(){
   }
 }
 
-on("verifyCheckBtn", "click", ()=>{
+document.getElementById("verifyCheckBtn").addEventListener("click", ()=>{
   const raw = document.getElementById("verifyAnswer").value.trim();
   const msg = document.getElementById("verifyMsg");
   if(raw === ""){
@@ -241,31 +180,26 @@ on("verifyCheckBtn", "click", ()=>{
 function fillProfileFormFromMe(){
   const me = currentMe();
   if(!me) return;
-  const setVal = (id, val)=>{ const el = document.getElementById(id); if(el) el.value = val; };
-  setVal("pName", me.name || "");
-  setVal("pAge", me.age || "");
-  setVal("pType", me.type || "person");
-  setVal("pGender", me.gender || "жінка");
-  setVal("pLanguage", me.language || "Українська");
-  setVal("pSettlementType", me.settlementType || "Місто");
-  setVal("pSettlementName", me.settlementName || "");
-  setVal("pEmail", me.email || "");
-  setVal("pPassword", "");
-  setVal("pDrinks", me.drinks || "");
-  setVal("pFood", me.food || "");
-  setVal("pFavPlace", me.favoritePlace || "");
-  setVal("pHobbies", me.hobbies || "");
-  setVal("pBio", me.bio || "");
-  const onlineEl = document.getElementById("onlineToggle");
-  if(onlineEl) onlineEl.checked = me.online !== false;
+  document.getElementById("pName").value = me.name || "";
+  document.getElementById("pAge").value = me.age || "";
+  document.getElementById("pType").value = me.type || "person";
+  document.getElementById("pGender").value = me.gender || "жінка";
+  document.getElementById("pLanguage").value = me.language || "Українська";
+  document.getElementById("pSettlementType").value = me.settlementType || "Місто";
+  document.getElementById("pSettlementName").value = me.settlementName || "";
+  document.getElementById("pDrinks").value = me.drinks || "";
+  document.getElementById("pFood").value = me.food || "";
+  document.getElementById("pFavPlace").value = me.favoritePlace || "";
+  document.getElementById("pHobbies").value = me.hobbies || "";
+  document.getElementById("pBio").value = me.bio || "";
+  document.getElementById("onlineToggle").checked = me.online !== false;
   renderAvatarPreview(me);
   refreshVerifyUI();
 }
 
-regForm?.addEventListener("submit", async e=>{
+regForm.addEventListener("submit", async e=>{
   e.preventDefault();
   const photo = await readPhotoFile(document.getElementById("regPhoto"));
-  const passwordHash = await hashText(document.getElementById("regPassword").value);
   const me = {
     name: document.getElementById("regName").value.trim(),
     age: Number(document.getElementById("regAge").value),
@@ -274,8 +208,6 @@ regForm?.addEventListener("submit", async e=>{
     language: document.getElementById("regLanguage").value,
     settlementType: document.getElementById("regSettlementType").value,
     settlementName: document.getElementById("regSettlementName").value.trim(),
-    email: document.getElementById("regEmail").value.trim(),
-    passwordHash: passwordHash,
     drinks: document.getElementById("regDrinks").value.trim(),
     food: document.getElementById("regFood").value.trim(),
     favoritePlace: document.getElementById("regFavPlace").value.trim(),
@@ -292,12 +224,12 @@ regForm?.addEventListener("submit", async e=>{
 
 if(currentMe()){
   showApp();
-} // інакше regOverlay лишається видимою
+} // інакше regOverlay лишається видимою (за замовчуванням hidden атрибута немає)
 
 /* ===================== НАВІГАЦІЯ ===================== */
 
-const screens = qsa(".screen");
-const navBtns = qsa(".nav-btn");
+const screens = document.querySelectorAll(".screen");
+const navBtns = document.querySelectorAll(".nav-btn");
 let mapInitialized = false;
 
 navBtns.forEach(btn=>{
@@ -321,45 +253,39 @@ let filters = {
   minAge:"", maxAge:"", drinks:"", food:"", place:"", settlement:""
 };
 
-/* Перевіряє одну анкету (p) на відповідність поточним фільтрам.
-   Кожен "if" — окрема умова фільтра: якщо анкета НЕ підходить хоч по
-   одному критерію — одразу повертаємо false (анкету ховаємо). */
 function matchesFilters(p){
-  if(filters.type !== "all" && p.type !== filters.type) return false;              // тип: людина/заклад
+  if(filters.type !== "all" && p.type !== filters.type) return false;
   if(filters.gender !== "all"){
-    if(!p.gender || p.gender !== filters.gender) return false;                     // стать
+    if(!p.gender || p.gender !== filters.gender) return false;
   }
-  if(filters.language !== "all" && (p.language || "") !== filters.language) return false; // мова спілкування
-  if(filters.minAge && p.age < Number(filters.minAge)) return false;               // мінімальний вік
-  if(filters.maxAge && p.age > Number(filters.maxAge)) return false;               // максимальний вік
-  if(filters.drinks && !(p.drinks || "").toLowerCase().includes(filters.drinks.toLowerCase())) return false; // напій — пошук підрядка
-  if(filters.food && !(p.food || "").toLowerCase().includes(filters.food.toLowerCase())) return false;       // їжа — пошук підрядка
-  if(filters.place && !(p.favoritePlace || "").toLowerCase().includes(filters.place.toLowerCase())) return false; // улюблений заклад
-  if(filters.settlement && !(p.geo || "").toLowerCase().includes(filters.settlement.toLowerCase())) return false; // місто/район
-  return true;                                                                     // жодна умова не відхилила — анкета підходить
+  if(filters.language !== "all" && (p.language || "") !== filters.language) return false;
+  if(filters.minAge && p.age < Number(filters.minAge)) return false;
+  if(filters.maxAge && p.age > Number(filters.maxAge)) return false;
+  if(filters.drinks && !(p.drinks || "").toLowerCase().includes(filters.drinks.toLowerCase())) return false;
+  if(filters.food && !(p.food || "").toLowerCase().includes(filters.food.toLowerCase())) return false;
+  if(filters.place && !(p.favoritePlace || "").toLowerCase().includes(filters.place.toLowerCase())) return false;
+  if(filters.settlement && !(p.geo || "").toLowerCase().includes(filters.settlement.toLowerCase())) return false;
+  return true;
 }
 
-/* true, якщо хоч один фільтр відрізняється від значення "за замовчуванням" —
-   використовується, щоб показати/сховати позначку на кнопці "фільтри". */
 function hasActiveFilters(){
   return filters.type !== "all" || filters.gender !== "all" || filters.language !== "all" ||
     filters.minAge || filters.maxAge || filters.drinks || filters.food || filters.place || filters.settlement;
 }
 
-/* Підсвічує кнопку "фільтри" в хедері (клас .active-filters), якщо застосовано хоч один фільтр. */
 function updateFilterBtnState(){
-  document.getElementById("filterBtn")?.classList.toggle("active-filters", hasActiveFilters());
+  document.getElementById("filterBtn").classList.toggle("active-filters", hasActiveFilters());
 }
 
 const filterModalOverlay = document.getElementById("filterModalOverlay");
-on("filterBtn", "click", ()=> { if(filterModalOverlay) filterModalOverlay.hidden = false; });
-on("filterModalCloseBtn", "click", ()=> { if(filterModalOverlay) filterModalOverlay.hidden = true; });
-filterModalOverlay?.addEventListener("click", e=>{ if(e.target === filterModalOverlay) filterModalOverlay.hidden = true; });
+document.getElementById("filterBtn").addEventListener("click", ()=> filterModalOverlay.hidden = false);
+document.getElementById("filterModalCloseBtn").addEventListener("click", ()=> filterModalOverlay.hidden = true);
+filterModalOverlay.addEventListener("click", e=>{ if(e.target === filterModalOverlay) filterModalOverlay.hidden = true; });
 document.addEventListener("keydown", e=>{
-  if(e.key === "Escape" && filterModalOverlay && !filterModalOverlay.hidden) filterModalOverlay.hidden = true;
+  if(e.key === "Escape" && !filterModalOverlay.hidden) filterModalOverlay.hidden = true;
 });
 
-qsa(".chip-row").forEach(row=>{
+document.querySelectorAll(".chip-row").forEach(row=>{
   row.addEventListener("click", e=>{
     const chip = e.target.closest(".chip");
     if(!chip) return;
@@ -370,7 +296,7 @@ qsa(".chip-row").forEach(row=>{
   });
 });
 
-on("filterForm", "submit", e=>{
+document.getElementById("filterForm").addEventListener("submit", e=>{
   e.preventDefault();
   filters.minAge = document.getElementById("fMinAge").value;
   filters.maxAge = document.getElementById("fMaxAge").value;
@@ -383,9 +309,9 @@ on("filterForm", "submit", e=>{
   rebuildQueue();
 });
 
-on("filterResetBtn", "click", ()=>{
+document.getElementById("filterResetBtn").addEventListener("click", ()=>{
   filters = {type:"all", gender:"all", language:"all", minAge:"", maxAge:"", drinks:"", food:"", place:"", settlement:""};
-  qsa(".chip-row").forEach(row=>{
+  document.querySelectorAll(".chip-row").forEach(row=>{
     row.querySelectorAll(".chip").forEach(c=> c.classList.toggle("active", c.dataset.value === "all"));
   });
   document.getElementById("fMinAge").value = "";
@@ -419,17 +345,14 @@ function rebuildQueue(){
 }
 
 function renderDeck(){
-  if(!deckEl) return;
   deckEl.innerHTML = "";
-  if(deckEmpty) deckEmpty.hidden = queue.length > 0;
-  if(showPassedBtn) showPassedBtn.hidden = !(queue.length === 0 && hasPassedProfiles() && !hasActiveFilters());
+  deckEmpty.hidden = queue.length > 0;
+  showPassedBtn.hidden = !(queue.length === 0 && hasPassedProfiles() && !hasActiveFilters());
 
-  if(deckEmptyText){
-    if(queue.length === 0 && hasActiveFilters()){
-      deckEmptyText.innerHTML = "Нікого не знайдено за цими фільтрами 🔍<br>Спробуй змінити критерії пошуку.";
-    } else {
-      deckEmptyText.innerHTML = "Це всі, хто зараз поруч 🍻<br>Заглянь пізніше — з'являться нові.";
-    }
+  if(queue.length === 0 && hasActiveFilters()){
+    deckEmptyText.innerHTML = "Нікого не знайдено за цими фільтрами 🔍<br>Спробуй змінити критерії пошуку.";
+  } else {
+    deckEmptyText.innerHTML = "Це всі, хто зараз поруч 🍻<br>Заглянь пізніше — з'являться нові.";
   }
 
   queue.slice(0, 3).reverse().forEach(p=>{
@@ -439,14 +362,12 @@ function renderDeck(){
   attachDragToTopCard();
 }
 
-/* Створює DOM-елемент однієї картки анкети (для колоди свайпів і для прев'ю).
-   p — об'єкт анкети (з SEED_PROFILES або зібраний з форми профілю). */
 function buildCard(p){
   const card = document.createElement("div");
-  card.className = "swipe-card";          // клас, за яким стилізується картка (style.css)
-  card.dataset.id = p.id;                 // id анкети зберігаємо в data-атрибуті, щоб знайти картку пізніше
+  card.className = "swipe-card";
+  card.dataset.id = p.id;
 
-  const extraTags = [];                   // додаткові теги (стать/мова/улюблений заклад) — збираємо умовно, бо не завжди всі є
+  const extraTags = [];
   if(p.gender) extraTags.push(`<span class="card-tag">${p.gender === "жінка" ? "♀" : p.gender === "чоловік" ? "♂" : "⚧"} ${escapeHtml(p.gender)}</span>`);
   if(p.language) extraTags.push(`<span class="card-tag">🗣 ${escapeHtml(p.language)}</span>`);
   if(p.favoritePlace && p.favoritePlace !== "—") extraTags.push(`<span class="card-tag">⭐ ${escapeHtml(p.favoritePlace)}</span>`);
@@ -473,13 +394,11 @@ function buildCard(p){
   return card;
 }
 
-/* Навішує обробники перетягування (мишею й пальцем) ТІЛЬКИ на верхню картку колоди —
-   решта карток під нею неактивні (pointer-events:none у CSS). */
 function attachDragToTopCard(){
   const cards = deckEl.querySelectorAll(".swipe-card");
   if(cards.length === 0) return;
-  const top = cards[cards.length - 1];   // остання в DOM = верхня візуально (бо колода рендериться в reverse())
-  let startX = 0, startY = 0, dx = 0, dragging = false;  // dx — наскільки зсунули картку по горизонталі
+  const top = cards[cards.length - 1];
+  let startX = 0, startY = 0, dx = 0, dragging = false;
 
   function pointerDown(e){
     dragging = true;
@@ -520,24 +439,21 @@ function attachDragToTopCard(){
   top.addEventListener("touchend", pointerUp);
 }
 
-let isSwiping = false;   // "замок" проти подвійного спрацювання (напр. клавіша + drag одночасно)
+let isSwiping = false;
 
-/* Завершує свайп верхньої картки: action = "like" (вправо) або "pass" (вліво).
-   Викликається і з жесту (drag), і зі стрілок клавіатури. */
 function finishSwipe(action){
-  if(isSwiping) return;                                    // вже в процесі — ігноруємо повторний виклик
+  if(isSwiping) return;
   const topCard = deckEl.querySelector(".swipe-card:last-child");
   const id = topCard?.dataset.id;
   if(!id) return;
   isSwiping = true;
-  hideSwipeHint();                                          // ховаємо підказку "← / →" назавжди
-  const flyX = action === "like" ? 500 : -500;               // напрямок "відльоту" картки за межі екрана
+  const flyX = action === "like" ? 500 : -500;
   if(topCard){
     topCard.style.transform = `translate(${flyX}px, -40px) rotate(${flyX/14}deg)`;
     topCard.style.opacity = "0";
   }
-  swipes[id] = action;               // запам'ятовуємо рішення по цій анкеті (щоб не показувати повторно)
-  set(LS.swipes, swipes);            // зберігаємо в localStorage
+  swipes[id] = action;
+  set(LS.swipes, swipes);
 
  setTimeout(()=>{
     const profile = queue.find(p=>p.id === id);
@@ -550,29 +466,15 @@ function finishSwipe(action){
   }, 220);
 }
 
-showPassedBtn?.addEventListener("click", ()=>{
+showPassedBtn.addEventListener("click", ()=>{
   Object.keys(swipes).forEach(id=>{
     if(swipes[id] === "pass") delete swipes[id];
   });
   set(LS.swipes, swipes);
   rebuildQueue();
 });
-// Свайп лише жестом (тач/мишею) або стрілками клавіатури — без кнопок ✕ / 🍾
-document.addEventListener("keydown", e=>{
-  const swipeScreen = document.getElementById("screen-swipe");
-  if(!swipeScreen || !swipeScreen.classList.contains("active")) return;
-  if(e.key === "ArrowLeft") finishSwipe("pass");
-  if(e.key === "ArrowRight") finishSwipe("like");
-});
-
-// Підказку "← пропустити / лайк →" ховаємо назавжди після першого свайпу
-const swipeHintEl = document.getElementById("swipeHint");
-function hideSwipeHint(){
-  if(swipeHintEl && !swipeHintEl.hidden){
-    swipeHintEl.classList.add("swipe-hint-gone");
-    setTimeout(()=>{ swipeHintEl.hidden = true; }, 400);
-  }
-}
+document.getElementById("passBtn").addEventListener("click", ()=> finishSwipe("pass"));
+document.getElementById("likeBtn").addEventListener("click", ()=> finishSwipe("like"));
 
 /* ---------- МЕТЧІ ---------- */
 
@@ -591,17 +493,16 @@ function registerMatch(profile){
     set(LS.chats, chats);
   }
   lastMatchedId = profile.id;
-  const nameEl = document.getElementById("matchName");
-  if(nameEl) nameEl.textContent = profile.name;
-  if(matchOverlay) matchOverlay.hidden = false;
-  if(chatDot) chatDot.hidden = false;
+  document.getElementById("matchName").textContent = profile.name;
+  matchOverlay.hidden = false;
+  chatDot.hidden = false;
 }
 
-on("matchKeepSwiping", "click", ()=> { if(matchOverlay) matchOverlay.hidden = true; });
-on("matchGoToChat", "click", ()=>{
-  if(matchOverlay) matchOverlay.hidden = true;
+document.getElementById("matchKeepSwiping").addEventListener("click", ()=> matchOverlay.hidden = true);
+document.getElementById("matchGoToChat").addEventListener("click", ()=>{
+  matchOverlay.hidden = true;
   navBtns.forEach(b=>b.classList.remove("active"));
-  document.querySelector('[data-tab="chats"]')?.classList.add("active");
+  document.querySelector('[data-tab="chats"]').classList.add("active");
   screens.forEach(s=> s.classList.toggle("active", s.id === "screen-chats"));
   openThread(lastMatchedId);
 });
@@ -614,9 +515,8 @@ const chatListView = document.getElementById("chatListView");
 const chatThreadView = document.getElementById("chatThreadView");
 
 function renderChatList(){
-  if(!chatListItems) return;
   chatListItems.innerHTML = "";
-  if(chatsEmpty) chatsEmpty.hidden = matches.length > 0;
+  chatsEmpty.hidden = matches.length > 0;
   const chats = get(LS.chats, {});
   matches.forEach(id=>{
     const profile = SEED_PROFILES.find(p=>p.id === id);
@@ -640,17 +540,14 @@ function renderChatList(){
 function openThread(id){
   const profile = SEED_PROFILES.find(p=>p.id === id);
   if(!profile) return;
-  if(chatListView) chatListView.hidden = true;
-  if(chatThreadView) chatThreadView.hidden = false;
-  if(chatDot) chatDot.hidden = true;
-  const header = document.getElementById("threadHeader");
-  if(header){
-    header.innerHTML = `
-      <span style="font-size:22px;">${profile.avatar}</span>
-      <span>${escapeHtml(profile.name)}</span>
-    `;
-  }
-  if(chatThreadView) chatThreadView.dataset.activeId = id;
+  chatListView.hidden = true;
+  chatThreadView.hidden = false;
+  chatDot.hidden = true;
+  document.getElementById("threadHeader").innerHTML = `
+    <span style="font-size:22px;">${profile.avatar}</span>
+    <span>${escapeHtml(profile.name)}</span>
+  `;
+  chatThreadView.dataset.activeId = id;
   renderThreadMessages(id);
 }
 
@@ -658,20 +555,19 @@ function renderThreadMessages(id){
   const chats = get(LS.chats, {});
   const thread = chats[id] || [];
   const wrap = document.getElementById("threadMessages");
-  if(!wrap) return;
   wrap.innerHTML = thread.map(m=>`
     <div class="msg ${m.from === "me" ? "msg-me" : "msg-them"}">${escapeHtml(m.text)}</div>
   `).join("");
   wrap.scrollTop = wrap.scrollHeight;
 }
 
-on("backToChats", "click", ()=>{
-  if(chatThreadView) chatThreadView.hidden = true;
-  if(chatListView) chatListView.hidden = false;
+document.getElementById("backToChats").addEventListener("click", ()=>{
+  chatThreadView.hidden = true;
+  chatListView.hidden = false;
   renderChatList();
 });
 
-on("threadForm", "submit", e=>{
+document.getElementById("threadForm").addEventListener("submit", e=>{
   e.preventDefault();
   const id = chatThreadView.dataset.activeId;
   const input = document.getElementById("threadInput");
@@ -692,12 +588,7 @@ on("threadForm", "submit", e=>{
   }, 1100);
 });
 
-/* ===================== КАРТА ЗАКЛАДІВ (реальні заклади по Черкасах і області) ===================== */
-/* Координати центру Черкас перевірені й відповідають реальним адресам, де вони відомі.
-   Для кількох закладів («111», «Рубар», «Облоко») точної офіційної адреси в
-   відкритих джерелах на момент оновлення знайти не вдалося — вони позначені
-   приблизно в районі центру/Хрещатика з поміткою "Уточнюйте на місці" в годинах
-   роботи. Клікни на мапу, щоб додати чи скоригувати заклад вручну. */
+/* ===================== КАРТА ЗАКЛАДІВ ===================== */
 
 let map;
 let places = get(LS.places, null) || seedPlaces();
@@ -707,140 +598,56 @@ let pendingNewCoords = null;
 
 function seedPlaces(){
   const seed = [
-    // ---------- ЧЕРКАСИ: бари, паби, лаунжі ----------
-    {id: cryptoId(), name:"Бар «Хвиля»", city:"Черкаси", address:"Пляж «Бочка», вул. Князя Ольгерда, Черкаси",
-      lat:49.4639, lng:32.0375, hours:"Щодня: 11:00–23:00 (влітку — довше)",
-      reviews:[{author:"Оля", rating:5, text:"Найкращий джин-тонік у місті, і вид на Дніпро шикарний.", ts: Date.now()-1000*60*60*24*20}]},
-    {id: cryptoId(), name:"Розважальний комплекс «Бочка»", city:"Черкаси", address:"вул. Князя Ольгерда, 3/1, Черкаси",
-      lat:49.463386, lng:32.036464, hours:"Щодня: цілодобово",
-      reviews:[{author:"Настя", rating:4, text:"Свій пляж, будиночки, живе музика ввечері.", ts: Date.now()-1000*60*60*24*15}]},
-    {id: cryptoId(), name:"Bierstube", city:"Черкаси", address:"вул. Хрещатик, 225, Черкаси",
-      lat:49.445527, lng:32.062854, hours:"Пн, Ср–Нд: 09:00–23:00 · Вт: 09:00–22:00",
-      reviews:[{author:"Максим", rating:4, text:"Великий вибір пива, є затишний підвал і літня тераса.", ts: Date.now()-1000*60*60*24*12}]},
-    {id: cryptoId(), name:"Oskar", city:"Черкаси", address:"бульвар Шевченка, 150, Черкаси",
-      lat:49.449782, lng:32.047608, hours:"Щодня: 11:00–22:50",
-      reviews:[{author:"Дмитро", rating:5, text:"Пивоварня власного виробництва, дуже смачно.", ts: Date.now()-1000*60*60*24*9}]},
-    {id: cryptoId(), name:"MONIKA.2049", city:"Черкаси", address:"вул. Смілянська, 2, Черкаси",
-      lat:49.444453, lng:32.068108, hours:"Пн–Пт: 09:30–23:00 · Сб–Нд: 11:00–23:00",
-      reviews:[{author:"Ірина", rating:5, text:"Кіберпанк-атмосфера, дуже гарні коктейлі.", ts: Date.now()-1000*60*60*24*6}]},
-    {id: cryptoId(), name:"Жива Діжка", city:"Черкаси", address:"вул. Максима Залізняка, 34/4, Черкаси",
-      lat:49.425560, lng:32.055107, hours:"Години роботи уточнюйте на місці",
-      reviews:[]},
-    {id: cryptoId(), name:"HAZE", city:"Черкаси", address:"вул. Костянтина Мірошниченка, 6, Черкаси",
-      lat:49.444164, lng:32.061104, hours:"Години роботи уточнюйте на місці",
-      reviews:[]},
-    {id: cryptoId(), name:"Old School pub", city:"Черкаси", address:"бульвар Шевченка, 187, Черкаси",
-      lat:49.443848, lng:32.060710, hours:"Щодня: 15:00–22:00",
-      reviews:[]},
-    {id: cryptoId(), name:"Salvadore", city:"Черкаси", address:"вул. Припортова, 1, Черкаси",
-      lat:49.435450, lng:32.101841, hours:"Щодня: 11:00–23:00",
-      reviews:[{author:"«Три бариста»", rating:5, text:"Вид на Дніпро приголомшливий, гарна карта коктейлів.", ts: Date.now()-1000*60*60*24*4}]},
-    {id: cryptoId(), name:"Escobar", city:"Черкаси", address:"вул. Остафія Дашковича, 19 (ТРЦ «Хрещатик-Сіті»), Черкаси",
-      lat:49.442500, lng:32.051500, hours:"Щодня: 10:00–23:00",
-      reviews:[{author:"Аліна", rating:5, text:"Смачна кухня, гарний кальян і завжди є вільний столик.", ts: Date.now()-1000*60*60*24*7}]},
-    {id: cryptoId(), name:"П'яна Вишня", city:"Черкаси", address:"вул. Смілянська, 173, Черкаси",
-      lat:49.428000, lng:32.064500, hours:"Щодня: 11:00–22:00",
-      reviews:[{author:"Ілона", rating:5, text:"Вишнева наливка й лимонад — фірмова фішка, дуже раджу.", ts: Date.now()-1000*60*60*24*10}]},
-    {id: cryptoId(), name:"Туман", city:"Черкаси", address:"вул. Хрещатик, Черкаси", 
-      lat:49.445300, lng:32.061000, hours:"Щодня: 10:00–23:00",
-      reviews:[{author:"Ірина", rating:4, text:"Затишний лаунж із хорошими кальянами, приглушене світло.", ts: Date.now()-1000*60*60*24*3}]},
-    {id: cryptoId(), name:"111", city:"Черкаси", address:"центр Черкас (уточнюйте точну адресу на місці)",
-      lat:49.446800, lng:32.058000, hours:"Уточнюйте на місці",
-      reviews:[]},
-    {id: cryptoId(), name:"Рубар", city:"Черкаси", address:"бульвар Шевченка, Черкаси (уточнюйте точну адресу на місці)",
-      lat:49.447500, lng:32.049800, hours:"Уточнюйте на місці",
-      reviews:[]},
-    {id: cryptoId(), name:"Облоко", city:"Черкаси", address:"центр Черкас (уточнюйте точну адресу на місці)",
-      lat:49.444000, lng:32.055500, hours:"Уточнюйте на місці",
-      reviews:[]},
-    // ---------- ЧЕРКАСИ: пляжі ----------
-    {id: cryptoId(), name:"Пляж «Живчик»", city:"Черкаси", address:"вул. Героїв Дніпра, Черкаси",
-      lat:49.460500, lng:32.033000, hours:"У сезон: щодня 08:00–21:00",
-      reviews:[{author:"Настя", rating:4, text:"Класний приватний пляж, ввечері завжди є вільні лежаки.", ts: Date.now()-1000*60*60*24*18}]},
-    {id: cryptoId(), name:"Пляж «Сосновий Бір» (Соснівський)", city:"Черкаси", address:"вул. Гагаріна, біля парку «Сосновий Бір», Черкаси",
-      lat:49.419000, lng:32.090000, hours:"У сезон: щодня 08:00–21:00, рятувальники 10:00–19:00",
-      reviews:[]},
-    // ---------- Київ ----------
-    {id: cryptoId(), name:"Барсук", city:"Київ", address:"центр, Київ", lat:50.4501, lng:30.5234, hours:"Уточнюйте на місці",
-      reviews:[{author:"Аліна", rating:5, text:"Атмосферний гастробар у центрі.", ts: Date.now()-1000*60*60*24*8}]},
-    {id: cryptoId(), name:"Mushrooms", city:"Київ", address:"центр, Київ", lat:50.4470, lng:30.5238, hours:"Уточнюйте на місці",
-      reviews:[]},
-    // ---------- Львів ----------
-    {id: cryptoId(), name:"Криївка", city:"Львів", address:"площа Ринок, Львів", lat:49.8397, lng:24.0297, hours:"Щодня: 12:00–24:00",
-      reviews:[{author:"Богдан", rating:5, text:"Легендарне місце, обов'язково зайти хоч раз.", ts: Date.now()-1000*60*60*24*30}]},
-    {id: cryptoId(), name:"Копальня кави", city:"Львів", address:"центр, Львів", lat:49.8399, lng:24.0303, hours:"Уточнюйте на місці",
-      reviews:[]},
-    // ---------- Одеса ----------
-    {id: cryptoId(), name:"Пивоварня «Трубодур»", city:"Одеса", address:"центр, Одеса", lat:46.4825, lng:30.7233, hours:"Уточнюйте на місці",
-      reviews:[{author:"Marine Bar", rating:4, text:"Крафтове пиво власного виробництва, раджу.", ts: Date.now()-1000*60*60*24*5}]},
-    // ---------- Харків ----------
-    {id: cryptoId(), name:"Basta Lounge", city:"Харків", address:"вул. Сумська, Харків", lat:49.9935, lng:36.2304, hours:"Уточнюйте на місці",
-      reviews:[{author:"Ірина", rating:4, text:"Гарний лаундж на Сумській.", ts: Date.now()-1000*60*60*24*3}]},
-    // ---------- Дніпро ----------
-    {id: cryptoId(), name:"Campus Bar", city:"Дніпро", address:"центр, Дніпро", lat:48.4647, lng:35.0462, hours:"Уточнюйте на місці",
-      reviews:[]}
+    {id: cryptoId(), name:"Бар «Хвиля»", lat:49.4444, lng:32.0598,
+      reviews:[{author:"Оля", rating:5, text:"Найкращий джин-тонік у місті."}]},
+    {id: cryptoId(), name:"Craft Room", lat:49.4285, lng:32.0645,
+      reviews:[{author:"Максим", rating:4, text:"Великий вибір крафтового пива."}]}
   ];
   set(LS.places, seed);
   return seed;
 }
 
-/* Ініціалізує карту Leaflet один раз (при першому відкритті вкладки "Заклади").
-   ВАЖЛИВО: список закладів під картою рендериться ОКРЕМО й одразу, навіть
-   якщо сама бібліотека карти (Leaflet, з CDN) з якоїсь причини не
-   завантажилась — щоб користувач у будь-якому разі бачив заклади й адреси. */
 function initMap(){
-  renderPlacesList();    // список закладів — незалежно від того, чи вдалося завантажити карту
-
-  const mapEl = document.getElementById("map");
-  if(!mapEl || typeof L === "undefined"){
-    // бібліотека Leaflet не завантажилась (немає інтернету/заблоковано CDN) —
-    // просто повідомляємо в консоль і не малюємо карту, застосунок далі працює
-    console.warn("[НАЛИВАЙ] Карта недоступна (Leaflet не завантажився). Список закладів все одно показано.");
-    return;
-  }
-  map = L.map("map", {zoomControl:true}).setView([49.4444, 32.0598], 12);   // старт: центр Черкас, зум 12
+  map = L.map("map", {zoomControl:true}).setView([49.4444, 32.0598], 13);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
     attribution: '&copy; OpenStreetMap &copy; CARTO',
     subdomains: "abcd", maxZoom: 19
-  }).addTo(map);        // темна тайлова підложка карти, що пасує до чорно-червоної теми
+  }).addTo(map);
 
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(pos=>{
-      map.setView([pos.coords.latitude, pos.coords.longitude], 13);   // якщо дозволили геолокацію — центруємо на користувачі
-    }, ()=>{});   // якщо відмовили — просто лишаємось на виді Черкас, без помилки
+      map.setView([pos.coords.latitude, pos.coords.longitude], 14);
+    }, ()=>{});
   }
 
-  places.forEach(addMarkerForPlace);   // ставимо маркер для кожного закладу зі сховища
+  places.forEach(addMarkerForPlace);
+  renderPlacesList();
 
   map.on("click", e=>{
-    // клік по вільному місцю карти = користувач хоче додати новий заклад тут
     pendingNewCoords = {lat:e.latlng.lat, lng:e.latlng.lng};
     activePlaceId = null;
     openPlaceModal();
   });
 }
 
-/* Іконка маркера на карті — келих 🍸 зі світінням, у стилі теми застосунку. */
 function neonIcon(){
   return L.divIcon({
     className:"",
-    html:`<div style="font-size:26px; filter:drop-shadow(0 0 6px rgba(224,178,162,0.85));">🍸</div>`,
+    html:`<div style="font-size:26px; filter:drop-shadow(0 0 6px rgba(45,255,160,0.8));">🍸</div>`,
     iconSize:[26,26], iconAnchor:[13,22]
   });
 }
 
-/* Додає маркер закладу на карту і навішує клік — відкрити модалку цього закладу. */
 function addMarkerForPlace(place){
   const marker = L.marker([place.lat, place.lng], {icon: neonIcon()}).addTo(map);
   marker.on("click", ()=>{
     activePlaceId = place.id; pendingNewCoords = null; openPlaceModal();
   });
-  markersById[place.id] = marker;   // зберігаємо посилання на маркер за id закладу (про запас, для майбутніх дій)
+  markersById[place.id] = marker;
 }
 
 function renderPlacesList(){
   const wrap = document.getElementById("placesListItems");
-  if(!wrap) return;
   wrap.innerHTML = "";
   if(places.length === 0){
     wrap.innerHTML = `<p class="places-empty">Ще немає закладів. Клікни на мапу, щоб додати перший.</p>`;
@@ -850,15 +657,11 @@ function renderPlacesList(){
     const item = document.createElement("div");
     item.className = "place-item";
     item.innerHTML = `
-      <div class="place-item-main">
-        <span class="place-item-name">${escapeHtml(p.name)}${p.city ? ` <span class="place-item-city">· ${escapeHtml(p.city)}</span>` : ""}</span>
-        ${p.address ? `<span class="place-item-address">${escapeHtml(p.address)}</span>` : ""}
-        ${p.hours ? `<span class="place-item-hours">🕐 ${escapeHtml(p.hours)}</span>` : ""}
-      </div>
+      <span class="place-item-name">${escapeHtml(p.name)}</span>
       <span class="place-item-meta">${p.reviews.length} відгук(ів)</span>
     `;
     item.addEventListener("click", ()=>{
-      map?.setView([p.lat, p.lng], 16);   // якщо карта не завантажилась, просто пропускаємо цей крок
+      map.setView([p.lat, p.lng], 16);
       activePlaceId = p.id; pendingNewCoords = null; openPlaceModal();
     });
     wrap.appendChild(item);
@@ -868,105 +671,49 @@ function renderPlacesList(){
 /* ---------- модалка закладу ---------- */
 
 const placeModalOverlay = document.getElementById("placeModalOverlay");
-const previewModalOverlay = document.getElementById("previewModalOverlay");
+const placeModalTitle = document.getElementById("placeModalTitle");
+const placeModalEyebrow = document.getElementById("placeModalEyebrow");
+const placeNewFields = document.getElementById("placeNewFields");
+const newPlaceNameInput = document.getElementById("newPlaceName");
+const reviewsList = document.getElementById("reviewsList");
 
-// Закриття модалки при натисканні на затемнену область
-[
-  placeModalOverlay,
-  filterModalOverlay,
-  previewModalOverlay,
-  matchOverlay
-].forEach(overlay => {
-  overlay?.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      overlay.hidden = true;
-    }
-  });
-});
+function openPlaceModal(){
+  placeModalOverlay.hidden = false;
+  if(activePlaceId){
+    const place = places.find(p=>p.id === activePlaceId);
+    placeModalEyebrow.textContent = "заклад";
+    placeModalTitle.textContent = place.name;
+    placeNewFields.hidden = true;
+    renderReviews(place);
+  } else {
+    placeModalEyebrow.textContent = "новий заклад";
+    placeModalTitle.textContent = "Додай назву та перший відгук";
+    placeNewFields.hidden = false;
+    newPlaceNameInput.value = "";
+    reviewsList.innerHTML = `<p class="no-reviews">Тут з'являться відгуки після першого запису.</p>`;
+  }
+}
 
 function closePlaceModal(){
-  if(placeModalOverlay) placeModalOverlay.hidden = true;
+  placeModalOverlay.hidden = true;
 }
 
-/* Відкриває модалку закладу: або перегляд існуючого (activePlaceId),
-   або форму додавання нового (pendingNewCoords). */
-function openPlaceModal(){
-  const eyebrow = document.getElementById("placeModalEyebrow");
-  const title = document.getElementById("placeModalTitle");
-  const addressEl = document.getElementById("placeModalAddress");
-  const hoursEl = document.getElementById("placeModalHours");
-  const newFields = document.getElementById("placeNewFields");
-  const reviewAuthorHint = document.getElementById("reviewAuthorHint");
-  const me = currentMe();
-
-  let place = null;
-  if(activePlaceId){
-    place = places.find(p=>p.id === activePlaceId);
-    if(!place) return;
-    eyebrow.textContent = place.city ? `заклад · ${place.city}` : "заклад";
-    title.textContent = place.name;
-    newFields.hidden = true;
-    document.getElementById("newPlaceName").value = "";
-
-    if(place.address){
-      addressEl.textContent = `📍 ${place.address}`;
-      addressEl.hidden = false;
-    } else {
-      addressEl.hidden = true;
-    }
-    if(place.hours){
-      hoursEl.textContent = `🕐 ${place.hours}`;
-      hoursEl.hidden = false;
-    } else {
-      hoursEl.hidden = true;
-    }
-  } else if(pendingNewCoords){
-    eyebrow.textContent = "новий заклад";
-    title.textContent = "Додати заклад";
-    newFields.hidden = false;
-    document.getElementById("newPlaceName").value = "";
-    addressEl.hidden = true;
-    hoursEl.hidden = true;
-    place = {reviews:[]};
-  } else {
-    return;
-  }
-
-  if(me && me.name){
-    reviewAuthorHint.textContent = `Відгук буде опубліковано від імені «${me.name}» — так ми показуємо лише реальні відгуки зареєстрованих користувачів.`;
-  } else {
-    reviewAuthorHint.textContent = "Заповни анкету в розділі «Профіль», щоб мати змогу лишати відгуки.";
-  }
-
-  document.getElementById("reviewSort").value = "new";
-  renderReviews(place);
-  placeModalOverlay.hidden = false;
-}
-
-on("placeModalCloseBtn", "click", closePlaceModal);
+// Закриття по кнопці-хрестику
+document.getElementById("placeModalCloseBtn").addEventListener("click", closePlaceModal);
+// Закриття по кліку на затемнений фон
+placeModalOverlay.addEventListener("click", e=>{
+  if(e.target === placeModalOverlay) closePlaceModal();
+});
+// Закриття по Escape
 document.addEventListener("keydown", e=>{
-  if(e.key === "Escape" && placeModalOverlay && !placeModalOverlay.hidden) closePlaceModal();
+  if(e.key === "Escape" && !placeModalOverlay.hidden) closePlaceModal();
 });
 
-/* Відгуки: тільки від зареєстрованих користувачів застосунку, з сортуванням за зірками/датою */
 function renderReviews(place){
-  const reviewsList = document.getElementById("reviewsList");
-  const reviewsCount = document.getElementById("reviewsCount");
-  const reviews = (place && place.reviews) || [];
-  reviewsCount.textContent = `${reviews.length} відгук(ів)`;
-
-  if(reviews.length === 0){
-    reviewsList.innerHTML = `<p class="no-reviews">Ще немає відгуків. Будь першим!</p>`;
-    return;
+  if(place.reviews.length === 0){
+    reviewsList.innerHTML = `<p class="no-reviews">Ще немає відгуків. Будь першим!</p>`; return;
   }
-
-  const sortMode = document.getElementById("reviewSort").value;
-  const sorted = [...reviews];
-  if(sortMode === "high") sorted.sort((a,b)=> b.rating - a.rating);
-  else if(sortMode === "low") sorted.sort((a,b)=> a.rating - b.rating);
-  else sorted.sort((a,b)=> (b.ts || 0) - (a.ts || 0));
-
-  reviewsList.innerHTML = sorted.map(r=>`
+  reviewsList.innerHTML = place.reviews.map(r=>`
     <div class="review-item">
       <span class="review-author">${escapeHtml(r.author)}</span>
       <span class="review-rating">${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)}</span>
@@ -975,57 +722,41 @@ function renderReviews(place){
   `).join("");
 }
 
-on("reviewSort", "change", ()=>{
-  const place = activePlaceId ? places.find(p=>p.id === activePlaceId) : {reviews:[]};
-  renderReviews(place);
-});
-
-on("reviewForm", "submit", e=>{
+document.getElementById("reviewForm").addEventListener("submit", e=>{
   e.preventDefault();
-  const me = currentMe();
-  if(!me || !me.name){
-    alert("Спочатку заповни анкету в розділі «Профіль» — відгуки можуть лишати лише зареєстровані користувачі.");
-    return;
-  }
-  const author = me.name;
+  const author = document.getElementById("reviewAuthor").value.trim();
   const text = document.getElementById("reviewText").value.trim();
   const rating = Number(document.getElementById("reviewRating").value);
-  const newReview = {author, rating, text, ts: Date.now()};
 
   if(activePlaceId){
     const place = places.find(p=>p.id === activePlaceId);
-    place.reviews.push(newReview);
-    set(LS.places, places);
-    renderPlacesList();
-    renderReviews(place);
+    place.reviews.push({author, rating, text});
   } else {
-    const name = document.getElementById("newPlaceName").value.trim();
-    if(!name){ document.getElementById("newPlaceName").focus(); return; }
-    const newPlace = {id: cryptoId(), name, city:"", address:"", hours:"", lat:pendingNewCoords.lat, lng:pendingNewCoords.lng, reviews:[newReview]};
+    const name = newPlaceNameInput.value.trim();
+    if(!name){ newPlaceNameInput.focus(); return; }
+    const newPlace = {id: cryptoId(), name, lat:pendingNewCoords.lat, lng:pendingNewCoords.lng, reviews:[{author, rating, text}]};
     places.push(newPlace);
     addMarkerForPlace(newPlace);
     activePlaceId = newPlace.id;
     pendingNewCoords = null;
-    set(LS.places, places);
-    renderPlacesList();
-    renderReviews(newPlace);
   }
+  set(LS.places, places);
+  renderPlacesList();
+  renderReviews(places.find(p=>p.id === activePlaceId));
   e.target.reset();
 });
 
 /* ===================== ПРОФІЛЬ ===================== */
 
-on("pPhoto", "change", async e=>{
+document.getElementById("pPhoto").addEventListener("change", async e=>{
   const photo = await readPhotoFile(e.target);
   if(photo) renderAvatarPreview({photo});
 });
 
-on("profileForm", "submit", async e=>{
+document.getElementById("profileForm").addEventListener("submit", async e=>{
   e.preventDefault();
   const me = currentMe() || {};
   const newPhoto = await readPhotoFile(document.getElementById("pPhoto"));
-  const newPasswordRaw = document.getElementById("pPassword").value;
-  const passwordHash = newPasswordRaw ? await hashText(newPasswordRaw) : (me.passwordHash || null);
   const updated = {
     ...me,
     name: document.getElementById("pName").value.trim(),
@@ -1035,8 +766,6 @@ on("profileForm", "submit", async e=>{
     language: document.getElementById("pLanguage").value,
     settlementType: document.getElementById("pSettlementType").value,
     settlementName: document.getElementById("pSettlementName").value.trim(),
-    email: document.getElementById("pEmail").value.trim(),
-    passwordHash: passwordHash,
     drinks: document.getElementById("pDrinks").value.trim(),
     food: document.getElementById("pFood").value.trim(),
     favoritePlace: document.getElementById("pFavPlace").value.trim(),
@@ -1047,7 +776,6 @@ on("profileForm", "submit", async e=>{
     photo: newPhoto || me.photo || null
   };
   set(LS.me, updated);
-  document.getElementById("pPassword").value = "";
   renderAvatarPreview(updated);
   const note = document.getElementById("saveNote");
   note.hidden = false;
@@ -1056,6 +784,7 @@ on("profileForm", "submit", async e=>{
 
 /* ---------- ПРЕВ'Ю АНКЕТИ ---------- */
 
+const previewModalOverlay = document.getElementById("previewModalOverlay");
 const previewCardWrap = document.getElementById("previewCardWrap");
 
 function buildGeoFromForm(){
@@ -1068,7 +797,7 @@ function buildGeoFromForm(){
 function renderPreviewCard(){
   const me = currentMe() || {};
   const avatarEl = document.getElementById("avatarPreview");
-  const imgEl = avatarEl ? avatarEl.querySelector("img") : null;
+  const imgEl = avatarEl.querySelector("img");
   const photo = imgEl ? imgEl.getAttribute("src") : (me.photo || null);
 
   const previewProfile = {
@@ -1088,27 +817,26 @@ function renderPreviewCard(){
     verified: !!me.verified
   };
 
-  if(!previewCardWrap) return;
   previewCardWrap.innerHTML = "";
   previewCardWrap.appendChild(buildCard(previewProfile));
 }
 
-/* Кнопка "Прев'ю анкети" — прив'язана через on(), тож навіть якщо
-   якийсь інший елемент на сторінці зникне, ця кнопка все одно working. */
-on("previewBtn", "click", (e)=>{
-  e.preventDefault();
+document.getElementById("previewBtn").addEventListener("click", ()=>{
   renderPreviewCard();
-  if(previewModalOverlay) previewModalOverlay.hidden = false;
+  previewModalOverlay.hidden = false;
 });
-on("previewModalCloseBtn", "click", ()=> { if(previewModalOverlay) previewModalOverlay.hidden = true; });
+document.getElementById("previewModalCloseBtn").addEventListener("click", ()=> previewModalOverlay.hidden = true);
+previewModalOverlay.addEventListener("click", e=>{
+  if(e.target === previewModalOverlay) previewModalOverlay.hidden = true;
+});
 document.addEventListener("keydown", e=>{
-  if(e.key === "Escape" && previewModalOverlay && !previewModalOverlay.hidden) previewModalOverlay.hidden = true;
+  if(e.key === "Escape" && !previewModalOverlay.hidden) previewModalOverlay.hidden = true;
 });
 
 /* ---------- геолокація ---------- */
 
 const myLocationBadge = document.getElementById("myLocationBadge");
-myLocationBadge?.addEventListener("click", ()=>{
+myLocationBadge.addEventListener("click", ()=>{
   if(!navigator.geolocation){
     myLocationBadge.textContent = "📍 геолокація недоступна";
     return;
@@ -1127,4 +855,4 @@ myLocationBadge?.addEventListener("click", ()=>{
 /* ===================== СТАРТ ===================== */
 
 rebuildQueue();
-if(matches.length > 0 && chatDot) chatDot.hidden = false;
+if(matches.length > 0) chatDot.hidden = false;
