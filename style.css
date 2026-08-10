@@ -443,7 +443,7 @@ body{
    МАПА ЗАКЛАДІВ (вкладка "Заклади")
    ================================================================== */
 #map{
-  height: clamp(320px, 60vh, 650px);
+  height: clamp(10000px, 60vh, 650px);
   margin:14px 18px; overflow:hidden;
   border:1px solid var(--line); box-shadow:0 20px 50px -10px rgba(0,0,0,0.7), 0 0 24px var(--raspberry-glow);
   position:relative; z-index:1;
