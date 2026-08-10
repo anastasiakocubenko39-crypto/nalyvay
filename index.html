@@ -18,34 +18,62 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<!-- ===================== ФОНОВИЙ ШАР НА ВЕСЬ ЕКРАН =====================
-     Якщо покладеш свій logo.png в цю саму папку — він автоматично
-     підхопиться шаром .bg-emblem-img (правило вже прописане в style.css). -->
+<!-- ===================== ФОНОВИЙ ШАР НА ВЕСЬ ЕКРАН ===================== -->
 <div id="bgStage" aria-hidden="true">
   <div class="bg-stripes"></div>
   <div class="bg-emblem"></div>
   <div class="bg-emblem-img"></div>
-  <span class="ember"></span><span class="ember"></span><span class="ember"></span>
-  <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+
+  <span class="ember"></span>
+  <span class="ember"></span>
+  <span class="ember"></span>
+  <span class="ember"></span>
+  <span class="ember"></span>
+  <span class="ember"></span>
 </div>
 
-<!-- ===================== ІНТРО-ВІДЕО (на весь екран, ~6-7 сек) =====================
-     ВИПРАВЛЕНО: раніше через дублювання файлу на сторінці існувало ОДРАЗУ
-     ТРИ копії #introOverlay/#introSkipBtn з різною/неповною розміткою,
-     і головне — нижче в кінці файлу двічі оголошувався supabaseClient,
-     через що JS-скрипт падав з помилки одразу на старті і НІ ОДИН
-     обробник кліків (в т.ч. на кнопці "Пропустити") не навішувався.
-     Тепер розмітка одна, клас intro-overlay на місці, кнопка працює. -->
+
+<!-- ===================== ІНТРО-ВІДЕО ===================== -->
 <div class="intro-overlay" id="introOverlay">
-  <video id="introVideo" autoplay muted playsinline preload="auto">
+
+  <video
+    id="introVideo"
+    autoplay
+    muted
+    playsinline
+    preload="auto"
+  >
     <source src="intro.mp4" type="video/mp4">
   </video>
+
   <div class="intro-logo-fallback" id="introLogoFallback" hidden>
-    <img src="logo.png" alt="НАЛИВАЙ" onerror="this.style.display='none'; this.parentElement.classList.add('text-only')">
-    <span class="intro-fallback-text">НАЛИВАЙ</span>
+    <img
+      src="logo.png"
+      alt="НАЛИВАЙ"
+      onerror="this.style.display='none'; this.parentElement.classList.add('text-only')"
+    >
+
+    <span class="intro-fallback-text">
+      НАЛИВАЙ
+    </span>
   </div>
+
 </div>
+
+
+<!-- ===================== АВТОМАТИЧНЕ ЗАКРИТТЯ ЗАСТАВКИ ===================== -->
+<script>
+  setTimeout(function () {
+
+    const intro = document.getElementById("introOverlay");
+
+    if (intro) {
+      intro.hidden = true;
+      intro.style.display = "none";
+    }
+
+  }, 1000);
+</script>
 
 <!-- ===================== РЕЄСТРАЦІЯ (обов'язкова, показується перший раз) ===================== -->
 <div class="modal-overlay reg-overlay" id="regOverlay">
