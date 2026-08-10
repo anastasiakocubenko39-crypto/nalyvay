@@ -1125,7 +1125,686 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leafle<!DOCTYPE html>
+<!--
+  НАЛИВАЙ — розмітка застосунку (index.html)
+  Коментарі українською стоять перед кожним значущим блоком і пояснюють,
+  за що він відповідає. Біля полів форм пояснення часто вже є у вигляді
+  самого українського label — окремий HTML-коментар додається там, де
+  призначення поля не очевидне з самого label/id.
+-->
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>НАЛИВАЙ — знайомства для тих, хто хоче випити не наодинці</title>
+
+<!-- підключення шрифтів Google Fonts: Unbounded — для заголовків, Manrope — для основного тексту -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- бібліотека Leaflet — інтерактивна карта закладів на вкладці "Заклади" -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css">
+
+
+<!-- ===================== ФОНОВИЙ ШАР НА ВЕСЬ ЕКРАН =====================
+     Немає завантаженого logo.png від тебе, тому фон зібраний з CSS-смуг
+     і радіального "спалаху" в тих самих кольорах, що на референсі.
+     Якщо покладеш свій logo.png в цю саму папку — він автоматично
+     підхопиться шаром .bg-emblem-img (правило вже прописане в style.css). -->
+<div id="bgStage" aria-hidden="true">
+  <div class="bg-stripes"></div>
+  <div class="bg-emblem"></div>
+  <div class="bg-emblem-img"></div>
+  <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+  <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+</div>
+
+<!-- ===================== ІНТРО-ВІДЕО (на весь екран, ~6-7 сек) ===================== -->
+<div class="intro-overlay" id="introOverlay">
+  <video id="introVideo" autoplay muted playsinline preload="auto">
+    <source src="intro.mp4" type="video/mp4">
+  </video>
+  <div class="intro-logo-fallback" id="introLogoFallback" hidden>
+    <img src="logo.png" alt="НАЛИВАЙ" onerror="this.style.display='none'; this.parentElement.classList.add('text-only')">
+    <span class="intro-fallback-text">НАЛИВАЙ</span>
+  </div>
+  <button type="button" class="intro-skip" id="introSkipBtn">Пропустити ⏭</button>
+</div>
+
+<!-- ===================== РЕЄСТРАЦІЯ (обов'язкова, показується перший раз) ===================== -->
+<div class="modal-overlay reg-overlay" id="regOverlay">
+  <div class="modal reg-card">
+    <div class="reg-logo">
+      <img src="logo.png" alt="НАЛИВАЙ" onerror="this.style.display='none'">
+    </div>
+    <p class="eyebrow">крок 1 з 1</p>
+    <h2>Створи анкету</h2>
+    <p class="reg-sub">Це займе хвилину. Без анкети не можна свайпати й лишати відгуки.</p>
+    <!-- форма реєстрації: усі поля required, окрім фото й опису, обов'язкові —
+         без заповненої анкети застосунок далі не пускає (див. showApp() у script.js) -->
+    <form id="regForm">
+      <label>Ім'я <!-- text, обов'язкове: ім'я або назва компанії, показується на картці -->
+        <input type="text" id="regName" required placeholder="Як тебе звати">
+      </label>
+      <div class="form-row">
+        <label>Вік <!-- number 18–99, обов'язкове -->
+          <input type="number" id="regAge" min="18" max="99" required placeholder="25">
+        </label>
+        <label>Тип анкети <!-- визначає бейдж "людина"/"заклад" на картці -->
+          <select id="regType">
+            <option value="person">Людина</option>
+            <option value="company">Компанія</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Стать
+          <select id="regGender">
+            <option value="жінка">Жіноча</option>
+            <option value="чоловік">Чоловіча</option>
+            <option value="інша">Інша</option>
+          </select>
+        </label>
+        <label>Мова спілкування
+          <select id="regLanguage">
+            <option value="Українська">Українська</option>
+            <option value="English">English</option>
+            <option value="Інша">Інша</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Тип населеного пункту
+          <select id="regSettlementType">
+            <option value="Місто">Місто</option>
+            <option value="СМТ">СМТ</option>
+            <option value="Село">Село</option>
+          </select>
+        </label>
+        <label>Де зараз
+          <input type="text" id="regSettlementName" required placeholder="Черкаси">
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Email <!-- зберігається у профілі, ніде публічно не показується -->
+          <input type="email" id="regEmail" required placeholder="pошта@приклад.com">
+        </label>
+        <label>Пароль <!-- у сховище потрапляє тільки SHA-256 хеш, не сам текст пароля -->
+          <input type="password" id="regPassword" required minlength="6" placeholder="мінімум 6 символів">
+        </label>
+      </div>
+      <p class="field-hint"><!-- пояснення до пароля вище --> Пароль зберігається на пристрої лише у хешованому вигляді (SHA-256), його неможливо прочитати з локального сховища.</p>
+      <label>🍺 Що любиш пити
+        <input type="text" id="regDrinks" required placeholder="Джин-тонік, крафтове пиво">
+      </label>
+      <label>🍴 Що любиш їсти
+        <input type="text" id="regFood" placeholder="Суші, бургери">
+      </label>
+      <label>⭐ Улюблений заклад
+        <input type="text" id="regFavPlace" placeholder="Бар «Хвиля»">
+      </label>
+      <label>🚶 Куди любиш ходити / хобі
+        <input type="text" id="regHobbies" placeholder="Бари з живою музикою, настолки, кава вранці">
+      </label>
+      <label>Фото профілю
+        <input type="file" accept="image/*" id="regPhoto">
+      </label>
+      <label>Про себе
+        <textarea id="regBio" rows="2" placeholder="Пара речень для контексту"></textarea>
+      </label>
+      <button type="submit" class="btn btn-primary btn-full">Почати знайомитись</button>
+    </form>
+  </div>
+</div>
+
+<div class="app" id="appRoot">
+
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-logo-plate">
+        <img src="logo.png" alt="НАЛИВАЙ" class="brand-logo" id="brandLogo" onerror="this.style.display='none'; document.getElementById('brandTextFallback').hidden=false;">
+        <span class="brand-glow" id="brandTextFallback" hidden>НАЛИВАЙ</span>
+      </span>
+      <span class="beta-pill">бета</span>
+    </div>
+    <div class="header-actions">
+      <button class="filter-btn" id="filterBtn">🔍 фільтри</button>
+      <button class="my-location" id="myLocationBadge">📍 визначити локацію</button>
+    </div>
+  </header>
+
+  <!-- ===================== AUTH ===================== -->
+<!-- ===================== AUTH ===================== -->
+
+<!-- Екран вибору: Вхід / Реєстрація -->
+<section id="screen-auth" class="screen">
+  <div class="auth-wrap">
+
+    <div class="auth-logo">НАЛИВАЙ</div>
+
+    <h1 class="screen-title">Ласкаво просимо 🍻</h1>
+
+    <p class="screen-sub">
+      Знайомся, знаходь компанію та не пий наодинці.
+    </p>
+
+    <div class="auth-actions">
+      <button type="button" class="btn btn-primary btn-full" id="showLoginBtn">
+        Увійти
+      </button>
+
+      <button type="button" class="btn btn-ghost btn-full" id="showRegisterBtn">
+        Реєстрація
+      </button>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- Екран входу -->
+<section id="screen-login" class="screen">
+
+  <button type="button" class="back-btn" id="backFromLoginBtn">
+    ← Назад
+  </button>
+
+  <h1 class="screen-title">Вхід</h1>
+
+  <p class="screen-sub">
+    Введи email — ми надішлемо код для входу.
+  </p>
+
+  <form id="loginForm" class="auth-form">
+
+    <label>
+      Email
+      <input
+        type="email"
+        id="loginEmail"
+        placeholder="you@example.com"
+        autocomplete="email"
+        required
+      >
+    </label>
+
+    <button type="submit" class="btn btn-primary btn-full">
+      Надіслати код
+    </button>
+
+    <p class="auth-message" id="loginMessage" hidden></p>
+
+  </form>
+
+</section>
+
+
+<!-- Екран підтвердження email під час входу -->
+<section id="screen-login-otp" class="screen">
+
+  <button type="button" class="back-btn" id="backFromLoginOtpBtn">
+    ← Назад
+  </button>
+
+  <h1 class="screen-title">Перевір email 📩</h1>
+
+  <p class="screen-sub">
+    Ми надіслали код підтвердження на:
+  </p>
+
+  <p id="loginOtpEmail" class="auth-email"></p>
+
+  <form id="loginOtpForm" class="auth-form">
+
+    <label>
+      Код підтвердження
+      <input
+        type="text"
+        id="loginOtpCode"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        maxlength="6"
+        placeholder="123456"
+        required
+      >
+    </label>
+
+    <button type="submit" class="btn btn-primary btn-full">
+      Підтвердити
+    </button>
+
+    <p class="auth-message" id="loginOtpMessage" hidden></p>
+
+  </form>
+
+</section>
+
+
+<!-- Екран реєстрації -->
+<section id="screen-register" class="screen">
+
+  <button type="button" class="back-btn" id="backFromRegisterBtn">
+    ← Назад
+  </button>
+
+  <h1 class="screen-title">Створення профілю</h1>
+
+  <p class="screen-sub">
+    Заповни основні дані, щоб створити свою анкету.
+  </p>
+
+  <form id="registerForm" class="auth-form">
+
+    <label>
+      Ім'я
+      <input
+        type="text"
+        id="registerName"
+        placeholder="Твоє ім'я"
+        autocomplete="name"
+        required
+      >
+    </label>
+
+    <label>
+      Email
+      <input
+        type="email"
+        id="registerEmail"
+        placeholder="you@example.com"
+        autocomplete="email"
+        required
+      >
+    </label>
+
+    <label class="age-confirm">
+      <input
+        type="checkbox"
+        id="ageVerified"
+        required
+      >
+      <span>
+        Мені є 18 років
+      </span>
+    </label>
+
+    <p class="field-hint">
+      Підтвердження віку буде виконуватись окремим сервісом
+      верифікації після підключення Yoti.
+    </p>
+
+    <button type="submit" class="btn btn-primary btn-full">
+      Продовжити
+    </button>
+
+    <p class="auth-message" id="registerMessage" hidden></p>
+
+  </form>
+
+</section>
+
+
+<!-- Екран підтвердження email під час реєстрації -->
+<section id="screen-register-otp" class="screen">
+
+  <button type="button" class="back-btn" id="backFromRegisterOtpBtn">
+    ← Назад
+  </button>
+
+  <h1 class="screen-title">Підтвердь email 📩</h1>
+
+  <p class="screen-sub">
+    Ми надіслали код підтвердження на:
+  </p>
+
+  <p id="registerOtpEmail" class="auth-email"></p>
+
+  <form id="registerOtpForm" class="auth-form">
+
+    <label>
+      Код підтвердження
+      <input
+        type="text"
+        id="registerOtpCode"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        maxlength="6"
+        placeholder="123456"
+        required
+      >
+    </label>
+
+    <button type="submit" class="btn btn-primary btn-full">
+      Підтвердити email
+    </button>
+
+    <p class="auth-message" id="registerOtpMessage" hidden></p>
+
+  </form>
+
+</section>
+
+    <!-- ===================== SWIPE ===================== -->
+    <section id="screen-swipe" class="screen active">
+      <div class="deck-wrap">
+        <div class="deck" id="deck"></div>
+        <div class="deck-empty" id="deckEmpty" hidden>
+          <p id="deckEmptyText">Це всі, хто зараз поруч 🍻<br>Заглянь пізніше — з'являться нові.</p>
+          <button type="button" class="btn btn-ghost" id="showPassedBtn" hidden>Показати пропущених ще раз</button>
+        </div>
+        <p class="swipe-hint" id="swipeHint">← пропустити&nbsp;&nbsp;&nbsp;лайк →</p>
+      </div>
+    </section>
+
+    <!-- ===================== ЗАКЛАДИ / КАРТА ===================== -->
+    <section id="screen-bars" class="screen">
+      <div class="section-head">
+        <p class="eyebrow">карта міста</p>
+        <h1 class="screen-title">Де наливають</h1>
+        <p class="screen-sub">Заклади по Черкасах, області та по всій Україні. Клікни на мапу, щоб додати свій і лишити відгук.</p>
+      </div>
+      <div id="map"></div>
+      <div class="places-list" id="placesList">
+        <h3>Заклади поруч</h3>
+        <div id="placesListItems"></div>
+      </div>
+    </section>
+
+    <!-- ===================== ЧАТИ ===================== -->
+    <section id="screen-chats" class="screen">
+      <div class="section-head">
+        <p class="eyebrow">метчі</p>
+        <h1 class="screen-title">Чати</h1>
+      </div>
+      <div id="chatListView">
+        <div id="chatListItems"></div>
+        <p class="deck-empty" id="chatsEmpty" hidden>Поки що немає метчів.<br>Свайпни когось вправо 🍾</p>
+      </div>
+      <div id="chatThreadView" hidden>
+        <button id="backToChats" class="back-btn">← Усі чати</button>
+        <div class="thread-header" id="threadHeader"></div>
+        <div class="thread-messages" id="threadMessages"></div>
+        <form id="threadForm" class="thread-form">
+          <input type="text" id="threadInput" placeholder="Написати повідомлення…" autocomplete="off" required>
+          <button type="submit" class="send-btn">➤</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===================== ПРОФІЛЬ ===================== -->
+    <section id="screen-profile" class="screen">
+      <div class="section-head">
+        <p class="eyebrow">твоя анкета</p>
+        <h1 class="screen-title">Профіль</h1>
+      </div>
+      <form id="profileForm" class="profile-form">
+        <div class="avatar-row">
+          <div class="avatar-actions">
+            <div class="avatar-circle" id="avatarPreview">🙂</div>
+            <label class="avatar-upload-label" for="pPhoto">Змінити фото</label>
+            <input type="file" accept="image/" id="pPhoto" class="photo-input">
+          </div>
+          <label class="online-toggle">
+            <input type="checkbox" id="onlineToggle" checked>
+            <span>Я зараз онлайн</span>
+          </label>
+        </div>
+
+        <div class="verify-box" id="verifyBox">
+          <div class="verify-status">
+            <span class="verify-badge" id="verifyBadgeText">Профіль не верифікований</span>
+          </div>
+          <div class="verify-challenge" id="verifyChallenge">
+            <p class="screen-sub" style="margin:0 0 10px;">Розв'яжи приклад, щоб підтвердити, що анкету веде людина</p>
+            <p class="verify-question" id="verifyQuestion">3 + 5 = ?</p>
+            <div class="verify-row">
+              <input type="number" id="verifyAnswer" placeholder="Відповідь">
+              <button type="button" class="btn btn-primary" id="verifyCheckBtn">Перевірити</button>
+            </div>
+            <p class="verify-msg" id="verifyMsg" hidden></p>
+          </div>
+        </div>
+
+        <label>Ім'я або назва компанії
+          <input type="text" id="pName" required placeholder="Твоє ім'я">
+        </label>
+        <div class="form-row">
+          <label>Вік
+            <input type="number" id="pAge" min="18" max="99" required placeholder="25">
+          </label>
+          <label>Тип анкети
+            <select id="pType">
+              <option value="person">Людина</option>
+              <option value="company">Компанія</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Стать
+            <select id="pGender">
+              <option value="жінка">Жіноча</option>
+              <option value="чоловік">Чоловіча</option>
+              <option value="інша">Інша</option>
+            </select>
+          </label>
+          <label>Мова спілкування
+            <select id="pLanguage">
+              <option value="Українська">Українська</option>
+              <option value="English">English</option>
+              <option value="Інша">Інша</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Тип населеного пункту
+            <select id="pSettlementType">
+              <option value="Місто">Місто</option>
+              <option value="СМТ">СМТ</option>
+              <option value="Село">Село</option>
+            </select>
+          </label>
+          <label>Де зараз
+            <input type="text" id="pSettlementName" required placeholder="Черкаси">
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Email
+            <input type="email" id="pEmail" placeholder="pошта@приклад.com">
+          </label>
+          <label>Новий пароль
+            <input type="password" id="pPassword" minlength="6" placeholder="залиш порожнім, щоб не міняти">
+          </label>
+        </div>
+        <p class="field-hint">Пароль ніколи не зберігається у відкритому вигляді — лише його хеш (SHA-256) на цьому пристрої.</p>
+        <label>🍺 Що люблю пити
+          <input type="text" id="pDrinks" placeholder="Джин-тонік, крафтове пиво">
+        </label>
+        <label>🍴 Що люблю їсти
+          <input type="text" id="pFood" placeholder="Суші, бургери">
+        </label>
+        <label>⭐ Улюблений заклад
+          <input type="text" id="pFavPlace" placeholder="Бар «Хвиля»">
+        </label>
+        <label>🚶 Куди люблю ходити / хобі
+          <input type="text" id="pHobbies" placeholder="Бари з живою музикою, настолки">
+        </label>
+        <label>Про себе
+          <textarea id="pBio" rows="2" placeholder="Пара речень для контексту"></textarea>
+        </label>
+        <button type="button" class="btn btn-ghost btn-full preview-trigger" id="previewBtn">👁 Прев'ю анкети — так тебе бачать інші</button>
+        <button type="submit" class="btn btn-primary btn-full">Зберегти профіль</button>
+        <p class="save-note" id="saveNote" hidden>Збережено ✓</p>
+      </form>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <button data-tab="bars" class="nav-btn">
+      <span class="nav-ico">🍸</span><span class="nav-label">Заклади</span>
+    </button>
+    <button data-tab="swipe" class="nav-btn nav-btn-main active">
+      <span class="nav-ico-main">🍾</span>
+    </button>
+    <button data-tab="chats" class="nav-btn">
+      <span class="nav-ico">💬</span><span class="nav-label">Чати</span>
+      <span class="nav-dot" id="chatDot" hidden></span>
+    </button>
+    <button data-tab="profile" class="nav-btn">
+      <span class="nav-ico">👤</span><span class="nav-label">Профіль</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- ===================== МЕТЧ MODAL ===================== -->
+<div class="modal-overlay match-overlay" id="matchOverlay" hidden>
+  <div class="match-card">
+    <p class="match-eyebrow">🔥 Це метч!</p>
+    <h2 id="matchName">Ім'я</h2>
+    <p class="match-sub">Тепер можна написати одне одному</p>
+    <div class="match-actions">
+      <button class="btn btn-ghost" id="matchKeepSwiping">Свайпати далі</button>
+      <button class="btn btn-primary" id="matchGoToChat">Написати</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== МОДАЛКА ЗАКЛАДУ ===================== -->
+<div class="modal-overlay" id="placeModalOverlay" hidden>
+  <div class="modal">
+    <button type="button" class="modal-close" id="placeModalCloseBtn">×</button>
+    <p class="eyebrow" id="placeModalEyebrow">заклад</p>
+    <h2 id="placeModalTitle">Назва закладу</h2>
+    <p class="place-meta-line" id="placeModalAddress" hidden></p>
+    <p class="place-meta-line place-meta-hours" id="placeModalHours" hidden></p>
+    <div id="placeNewFields">
+      <label>Назва закладу
+        <input type="text" id="newPlaceName" placeholder="Бар «Хвиля»">
+      </label>
+    </div>
+
+    <div class="reviews-head">
+      <span class="reviews-count" id="reviewsCount">0 відгуків</span>
+      <label class="reviews-sort-label">Сортувати
+        <select id="reviewSort">
+          <option value="new">Найновіші</option>
+          <option value="high">Найвищий рейтинг</option>
+          <option value="low">Найнижчий рейтинг</option>
+        </select>
+      </label>
+    </div>
+    <div class="reviews-list" id="reviewsList"></div>
+
+    <form id="reviewForm">
+      <p class="field-hint" id="reviewAuthorHint">Відгук залишається від імені твоєї анкети — так ми показуємо лише реальні відгуки зареєстрованих користувачів.</p>
+      <label>Відгук
+        <textarea id="reviewText" rows="2" required placeholder="Що сподобалось"></textarea>
+      </label>
+      <label>Оцінка
+        <select id="reviewRating">
+          <option value="5">★★★★★</option>
+          <option value="4">★★★★☆</option>
+          <option value="3">★★★☆☆</option>
+          <option value="2">★★☆☆☆</option>
+          <option value="1">★☆☆☆☆</option>
+        </select>
+      </label>
+      <button type="submit" class="btn btn-primary btn-full">Залишити відгук</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== ФІЛЬТРИ / РОЗШИРЕНИЙ ПОШУК ===================== -->
+<div class="modal-overlay" id="filterModalOverlay" hidden>
+  <div class="modal">
+    <button type="button" class="modal-close" id="filterModalCloseBtn">×</button>
+    <p class="eyebrow">розширений пошук</p>
+    <h2>Фільтри</h2>
+    <form id="filterForm">
+      <p class="filter-group-title">Кого шукаєш</p>
+      <div class="chip-row" data-group="type">
+        <span class="chip active" data-value="all">Усі</span>
+        <span class="chip" data-value="person">Люди</span>
+        <span class="chip" data-value="company">Заклади</span>
+      </div>
+
+      <p class="filter-group-title">Стать</p>
+      <div class="chip-row" data-group="gender">
+        <span class="chip active" data-value="all">Усі</span>
+        <span class="chip" data-value="жінка">Жіноча</span>
+        <span class="chip" data-value="чоловік">Чоловіча</span>
+        <span class="chip" data-value="інша">Інша</span>
+      </div>
+
+      <p class="filter-group-title">Мова спілкування</p>
+      <div class="chip-row" data-group="language">
+        <span class="chip active" data-value="all">Усі</span>
+        <span class="chip" data-value="Українська">Українська</span>
+        <span class="chip" data-value="English">English</span>
+        <span class="chip" data-value="Інша">Інша</span>
+      </div>
+
+      <p class="filter-group-title">Вік</p>
+      <div class="form-row">
+        <label>Від
+          <input type="number" id="fMinAge" min="18" max="99" placeholder="18">
+        </label>
+        <label>До
+          <input type="number" id="fMaxAge" min="18" max="99" placeholder="99">
+        </label>
+      </div>
+
+      <p class="filter-group-title">Деталі</p>
+      <label>🍺 Напій
+        <input type="text" id="fDrinks" placeholder="Наприклад, віскі">
+      </label>
+      <label>🍴 Їжа
+        <input type="text" id="fFood" placeholder="Наприклад, суші">
+      </label>
+      <label>⭐ Улюблений заклад
+        <input type="text" id="fPlace" placeholder="Наприклад, Хвиля">
+      </label>
+      <label>📍 Місто / район
+        <input type="text" id="fSettlement" placeholder="Наприклад, центр">
+      </label>
+
+      <div class="filter-actions">
+        <button type="button" class="btn btn-ghost" id="filterResetBtn">Скинути</button>
+        <button type="submit" class="btn btn-primary">Показати</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== ПРЕВ'Ю АНКЕТИ ===================== -->
+<div class="modal-overlay" id="previewModalOverlay" hidden>
+  <div class="modal">
+    <button type="button" class="modal-close" id="previewModalCloseBtn">×</button>
+    <p class="eyebrow">прев'ю</p>
+    <h2>Так тебе бачать інші</h2>
+    <div class="preview-card-wrap" id="previewCardWrap"></div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+  const SUPABASE_URL = "https://yecjmwgmfwqgxbiggeby.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_DIBPiv-9rJowQacsgEBMAw_8GvIxboP";
+
+  const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+  );
+</script>
+
+<script src="script.js"></script>
+</body>
+</html>t/1.9.4/leaflet.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
