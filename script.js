@@ -204,11 +204,23 @@ function fillProfileFormFromMe(){
   refreshVerifyUI();
 }
 
-regForm.addEventListener("submit", async e=>{
+let pendingRegistration = null;
+
+regForm.addEventListener("submit", async e => {
   e.preventDefault();
+
+  const email = document.getElementById("regEmail").value.trim();
+
+  if (!email) {
+    alert("Введи Email");
+    return;
+  }
+
   const photo = await readPhotoFile(document.getElementById("regPhoto"));
-  const me = {
+
+  pendingRegistration = {
     name: document.getElementById("regName").value.trim(),
+    email: email,
     age: Number(document.getElementById("regAge").value),
     type: document.getElementById("regType").value,
     gender: document.getElementById("regGender").value,
@@ -225,13 +237,62 @@ regForm.addEventListener("submit", async e=>{
     photo: photo || null,
     verified: false
   };
-  set(LS.me, me);
+
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email: email,
+    options: {
+      shouldCreateUser: true
+    }
+  });
+
+  if (error) {
+    console.error("OTP error:", error);
+    alert("Не вдалося надіслати код: " + error.message);
+    return;
+  }
+
+  document.getElementById("otpSection").hidden = false;
+
+  const otpMessage = document.getElementById("otpMessage");
+  otpMessage.textContent = "Код підтвердження надіслано на " + email;
+  otpMessage.hidden = false;
+});
+document.getElementById("verifyOtpBtn").addEventListener("click", async () => {
+  const email = document.getElementById("regEmail").value.trim();
+  const token = document.getElementById("regOtp").value.trim();
+
+  if (!token) {
+    alert("Введи код із Email");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.verifyOtp({
+    email: email,
+    token: token,
+    type: "email"
+  });
+
+  if (error) {
+    console.error("Verify OTP error:", error);
+    alert("Неправильний або прострочений код: " + error.message);
+    return;
+  }
+
+  if (!pendingRegistration) {
+    alert("Дані реєстрації не знайдено. Спробуй зареєструватися ще раз.");
+    return;
+  }
+
+  pendingRegistration.verified = true;
+
+  set(LS.me, pendingRegistration);
+
+  pendingRegistration = null;
+
   showApp();
 });
 
-if(currentMe()){
-  showApp();
-} // інакше regOverlay лишається видимою (за замовчуванням hidden атрибута немає)
+// інакше regOverlay лишається видимою (за замовчуванням hidden атрибута немає)
 
 /* ===================== НАВІГАЦІЯ ===================== */
 
