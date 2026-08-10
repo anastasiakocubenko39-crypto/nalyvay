@@ -603,7 +603,147 @@ if (regForm) {
 }
 
 
-/* ===================== ПЕРЕВІРКА EMAIL ===================== */
+/* ===================== ПЕРЕВІРКА EMAIL / СЕСІЇ =====================
+   ВИПРАВЛЕНО (борг: "після підтвердження Email користувача знову
+   кидає на форму реєстрації"):
+
+   Стара версія checkEmailConfirmation() відкривала застосунок
+   (showApp()) ЛИШЕ якщо в localStorage лежав "nalyvay_pending_registration".
+   Але цей ключ видаляється одразу після першого успішного опрацювання —
+   тож будь-яке НАСТУПНЕ повернення на сайт (інший тик/вкладка/пристрій,
+   або магік-лінк відкрився в іншому браузері, напр. вбудованому
+   браузері поштового застосунку) залишало pending == null. У такому
+   разі функція просто виходила (return), showApp() не викликався,
+   і людина бачила forever форму реєстрації, попри активну сесію
+   Supabase і вже підтверджений Email.
+
+   Нова логіка (handleSession) перевіряє сесію в трьох випадках:
+     1. є pending-анкета   -> зберігаємо її в Supabase, showApp().
+     2. немає pending, але LS.me вже належить цьому користувачу
+                           -> просто showApp() (нема що підтягувати).
+     3. немає ні pending, ні відповідного LS.me
+                           -> тягнемо анкету з public.profiles за
+                              session.user.id і, якщо вона там є,
+                              відновлюємо LS.me й showApp().
+   Лише якщо сесії взагалі немає АБО анкети ніде не існує (ні
+   pending, ні LS.me, ні рядка в базі) — людина залишається на формі
+   реєстрації, бо реєструватись їй справді ще треба. */
+
+/* Захист від повторного відновлення профілю в межах одного
+   завантаження сторінки: checkEmailConfirmation() і onAuthStateChange
+   (див. нижче) можуть спрацювати майже одночасно. */
+let sessionHandled = false;
+
+function applyLocalProfileAndOpenApp(meObject) {
+  set(LS.me, meObject);
+  showApp();
+}
+
+/* Дістає рядок анкети з public.profiles за id користувача Supabase.
+   Повертає null, якщо рядка ще немає (напр. магік-лінк відкрився в
+   іншому браузері/пристрої, де pending-анкети не було, тож анкету
+   ще ніде не зберегли). */
+async function fetchOwnProfileRow(userId) {
+  if (!supabaseClient) return null;
+
+  const { data: row, error } = await supabaseClient
+    .from(PROFILE_TABLE)
+    .select("id,name,birth_date,gender,city,bio,photo_url,phone_verified,age_verified,is_active,created_at")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Не вдалося отримати анкету з Supabase:", error);
+    return null;
+  }
+
+  return row || null;
+}
+
+async function handleSession(session) {
+  if (!session || !session.user) return;
+
+  const userId = session.user.id;
+  const already = currentMe();
+
+  if (sessionHandled && already && already.id === userId) {
+    return;
+  }
+
+  const pendingRaw = localStorage.getItem("nalyvay_pending_registration");
+
+  if (pendingRaw) {
+    let registration = null;
+
+    try {
+      registration = JSON.parse(pendingRaw);
+    } catch (err) {
+      console.error("Пошкоджені дані очікуваної реєстрації:", err);
+    }
+
+    if (registration) {
+      /* Email підтверджений. session.user.id — стабільний ідентифікатор
+         користувача (auth.users.id), саме він є первинним ключем у
+         public.profiles. */
+      registration.id = userId;
+      registration.email = session.user.email;
+      registration.verified = true;
+
+      /* ЗАПИС АНКЕТИ В SUPABASE (INSERT/UPSERT). Якщо запис у базу не
+         вдався, анкету все одно зберігаємо локально (щоб людина не
+         втратила щойно заповнену форму), але чесно повідомляємо її
+         про проблему, а не мовчимо. */
+      const { error: saveError } = await saveProfileToSupabase(registration);
+
+      if (saveError) {
+        console.error("Не вдалося записати анкету в Supabase:", saveError);
+
+        alert(
+          "Email підтверджено, анкету збережено локально, але не вдалося " +
+          "записати її в базу даних: " + saveError.message + ". " +
+          "Спробуй зберегти профіль ще раз на вкладці «Профіль»."
+        );
+      }
+
+      localStorage.removeItem("nalyvay_pending_registration");
+      pendingRegistration = null;
+
+      sessionHandled = true;
+      applyLocalProfileAndOpenApp(registration);
+
+      /* Підвантажуємо анкети інших користувачів заново — щоб одразу
+         врахувати щойно створену власну анкету (виключити себе). */
+      if (typeof refreshRemoteProfiles === "function") {
+        refreshRemoteProfiles();
+      }
+
+      return;
+    }
+  }
+
+  if (already && already.id === userId) {
+    /* Анкета вже є локально й належить саме цьому користувачу —
+       просто впускаємо в застосунок, підтягувати нічого не треба. */
+    sessionHandled = true;
+    showApp();
+    return;
+  }
+
+  /* Немає ні pending-анкети, ні коректного LS.me — пробуємо підтягнути
+     анкету напряму з public.profiles (напр. поточний браузер/пристрій
+     інший, ніж той, де заповнювалась форма реєстрації). */
+  const row = await fetchOwnProfileRow(userId);
+
+  if (row) {
+    sessionHandled = true;
+    applyLocalProfileAndOpenApp(supabaseRowToLocalMe(row, session.user.email));
+  }
+
+  /* Якщо рядка немає — Email підтверджено, але анкети ще справді
+     ніде не існує (ні тут, ні в базі). Це нормально лише для людини,
+     яка ще жодного разу не проходила форму реєстрації, — лишаємо її
+     на regOverlay, заповнення форми спрацює звичайним шляхом. */
+}
 
 async function checkEmailConfirmation() {
 
@@ -627,94 +767,7 @@ async function checkEmailConfirmation() {
     }
 
 
-    /* Користувач ще не підтвердив Email */
-
-    if (!session || !session.user) {
-      return;
-    }
-
-
-    /* Беремо збережену анкету */
-
-    const pending =
-      localStorage.getItem(
-        "nalyvay_pending_registration"
-      );
-
-
-    if (!pending) {
-      return;
-    }
-
-
-    const registration =
-      JSON.parse(pending);
-
-
-    /* Email підтверджений.
-       session.user.id — стабільний ідентифікатор користувача
-       (auth.users.id), саме він є первинним ключем у public.profiles. */
-
-    registration.id = session.user.id;
-
-    registration.email =
-      session.user.email;
-
-    registration.verified = true;
-
-
-    /* ЗАПИС АНКЕТИ В SUPABASE (INSERT/UPSERT).
-       Виконується ДО збереження в localStorage: якщо запис у базу
-       не вдався, ми все одно зберігаємо анкету локально (щоб людина
-       не втратила щойно заповнену форму), але чесно повідомляємо її
-       про проблему, а не мовчимо. */
-
-    const { error: saveError } =
-      await saveProfileToSupabase(registration);
-
-    if (saveError) {
-      console.error(
-        "Не вдалося записати анкету в Supabase:",
-        saveError
-      );
-
-      alert(
-        "Email підтверджено, анкету збережено локально, але не вдалося " +
-        "записати її в базу даних: " + saveError.message + ". " +
-        "Спробуй зберегти профіль ще раз на вкладці «Профіль»."
-      );
-    }
-
-
-    /* Створюємо профіль (локальна копія для швидкої роботи інтерфейсу) */
-
-    set(
-      LS.me,
-      registration
-    );
-
-
-    /* Тимчасові дані більше не потрібні */
-
-    localStorage.removeItem(
-      "nalyvay_pending_registration"
-    );
-
-
-    pendingRegistration = null;
-
-
-    /* Відкриваємо застосунок */
-
-    showApp();
-
-
-    /* Підвантажуємо анкети інших користувачів заново — щоб одразу
-       врахувати щойно створену власну анкету (виключити себе) */
-
-    if (typeof refreshRemoteProfiles === "function") {
-      refreshRemoteProfiles();
-    }
+    await handleSession(session);
 
 
   } catch (error) {
@@ -728,47 +781,48 @@ async function checkEmailConfirmation() {
 
 }
 
+/* Додатковий слухач подій автентифікації. supabase-js обробляє токени
+   магік-лінка з URL асинхронно під час ініціалізації клієнта — у
+   рідкісних випадках getSession() у checkEmailConfirmation() може
+   встигнути відпрацювати ДО завершення цієї обробки (сесії ще немає),
+   а трохи пізніше supabase-js сам згенерує подію SIGNED_IN. Без цього
+   слухача людина в такому випадку так і лишалась би на формі
+   реєстрації, хоча Email уже підтверджено. handleSession() всередині
+   ідемпотентний (прапорець sessionHandled), тож повторний виклик
+   після checkEmailConfirmation() безпечний і не дублює запити. */
+if (supabaseClient) {
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (
+      event === "SIGNED_IN" ||
+      event === "TOKEN_REFRESHED" ||
+      event === "INITIAL_SESSION"
+    ) {
+      handleSession(session);
+    }
+  });
+}
+
 
 /* ===================== ЗАПУСК АВТЕНТИФІКАЦІЇ/АНКЕТ =====================
-   1. checkEmailConfirmation() — сценарій Magic Link, як і раніше:
-      підхоплює nalyvay_pending_registration після повернення з листа.
-   2. Якщо користувач уже має LS.me (повертається у застосунок) —
-      одразу показуємо застосунок, не чекаючи мережі.
-   3. Якщо LS.me немає, але є активна сесія Supabase (напр. інший
-      пристрій або очищений localStorage) — підтягуємо анкету з бази.
-   4. У будь-якому разі підвантажуємо анкети інших користувачів. */
+   1. Якщо анкета вже є локально (LS.me) — одразу показуємо застосунок,
+      не чекаючи мережі (регістрація повторно не показується). Сесію й
+      актуальність анкети все одно звіримо нижче через
+      checkEmailConfirmation() -> handleSession().
+   2. checkEmailConfirmation() — і сценарій Magic Link (підхоплює
+      nalyvay_pending_registration після повернення з листа), і
+      сценарій "уже є активна сесія Supabase, але LS.me порожній чи
+      належить іншому користувачу" (напр. інший пристрій/браузер або
+      очищений localStorage) — обидва тепер оброблені в handleSession().
+   3. У будь-якому разі підвантажуємо анкети інших користувачів. */
 
 async function initAuthAndProfiles() {
 
-  await checkEmailConfirmation();
-
-  if (!currentMe() && supabaseClient) {
-    try {
-      const {
-        data: { session }
-      } = await supabaseClient.auth.getSession();
-
-      if (session && session.user) {
-        const { data: row, error } = await supabaseClient
-          .from(PROFILE_TABLE)
-          .select("id,name,birth_date,gender,city,bio,photo_url,phone_verified,age_verified,is_active,created_at")
-          .eq("id", session.user.id)
-          .maybeSingle();
-
-        if (error) {
-          console.error("Не вдалося відновити анкету з Supabase:", error);
-        } else if (row) {
-          set(LS.me, supabaseRowToLocalMe(row, session.user.email));
-          showApp();
-        }
-      }
-    } catch (err) {
-      console.error("Помилка перевірки існуючої сесії Supabase:", err);
-    }
-  } else if (currentMe()) {
-    /* Анкета вже є локально — одразу пускаємо в застосунок,
-       без очікування мережі (реєстрація повторно не показується). */
+  if (currentMe()) {
     showApp();
+  }
+
+  if (supabaseClient) {
+    await checkEmailConfirmation();
   }
 
   await refreshRemoteProfiles();
