@@ -433,7 +433,13 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
+<!-- ВИПРАВЛЕНО: раніше тут ще й був окремий інлайн-скрипт, який ЗАНОВО
+     оголошував `const supabaseClient`, а це саме вже робить script.js.
+     Через подвійне `const supabaseClient` браузер кидав
+     "SyntaxError: Identifier 'supabaseClient' has already been declared",
+     і script.js повністю переставав виконуватись — звідси й непрацююча
+     кнопка "Пропустити", і всі інші зламані кнопки/картки. Тепер
+     supabaseClient оголошується РІВНО ОДИН раз, всередині script.js. -->
 <script src="script.js"></script>
 </body>
 </html>
