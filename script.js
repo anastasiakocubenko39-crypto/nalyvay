@@ -480,8 +480,8 @@ showPassedBtn.addEventListener("click", ()=>{
   set(LS.swipes, swipes);
   rebuildQueue();
 });
-document.getElementById("passBtn").addEventListener("click", ()=> finishSwipe("pass"));
-document.getElementById("likeBtn").addEventListener("click", ()=> finishSwipe("like"));
+document.getElementById("passBtn")?.addEventListener("click", ()=> finishSwipe("pass"));
+document.getElementById("likeBtn")?.addEventListener("click", ()=> finishSwipe("like"));
 
 /* ---------- МЕТЧІ ---------- */
 
@@ -731,7 +731,11 @@ function renderReviews(place){
 
 document.getElementById("reviewForm").addEventListener("submit", e=>{
   e.preventDefault();
-  const author = document.getElementById("reviewAuthor").value.trim();
+  /* ВИПРАВЛЕНО: раніше тут читалось неіснуюче поле #reviewAuthor, через що
+     відгук кидав помилку і форма ламалась. Автор відгуку — це поточний
+     користувач з його анкети (як і написано в підказці над формою). */
+  const me = currentMe() || {};
+  const author = me.name || "Гість";
   const text = document.getElementById("reviewText").value.trim();
   const rating = Number(document.getElementById("reviewRating").value);
 
