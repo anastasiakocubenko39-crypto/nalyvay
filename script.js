@@ -1,25 +1,24 @@
 /* ===================== ІНТРО-ВІДЕО ===================== */
 
 const introOverlay = document.getElementById("introOverlay");
+const introOverlay = document.getElementById("introOverlay");
 const introVideo = document.getElementById("introVideo");
 const introLogoFallback = document.getElementById("introLogoFallback");
 
 function hideIntro() {
   if (!introOverlay) return;
 
-  introOverlay.classList.add("intro-hidden");
-
-  setTimeout(() => {
-    introOverlay.hidden = true;
-  }, 400);
+  introOverlay.hidden = true;
+  introOverlay.style.display = "none";
 }
 
-// Заставка показується 1 секунду
 if (introOverlay) {
-  setTimeout(hideIntro, 1000);
+  // Показуємо заставку рівно 1 секунду
+  setTimeout(() => {
+    hideIntro();
+  }, 1000);
 }
 
-// Якщо відео не завантажилося
 if (introVideo) {
   introVideo.addEventListener("error", () => {
     introVideo.hidden = true;
