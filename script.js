@@ -520,7 +520,7 @@ function fillProfileFormFromMe() {
 }
 
 
-/* ===================== ВІДПРАВКА EMAIL ===================== */
+/* ===================== ВІДПРАВКА EMAIL (РЕЄСТРАЦІЯ) ===================== */
 
 let pendingRegistration = null;
 
@@ -631,7 +631,7 @@ if (regForm) {
 
     /* Відправляємо Magic Link */
 
-    console.log("AUTH: sending magic link", { email, emailRedirectTo: EMAIL_REDIRECT_TO });
+    console.log("AUTH: sending magic link (register)", { email, emailRedirectTo: EMAIL_REDIRECT_TO });
 
     const { error } =
       await supabaseClient.auth.signInWithOtp({
@@ -704,7 +704,24 @@ if (regForm) {
 
 }
 
-/* ===================== ВХІД (для тих, хто вже має акаунт) ===================== */
+
+/* ===================== ВХІД (ДЛЯ ТИХ, ХТО ВЖЕ МАЄ АКАУНТ) =====================
+   ДОДАНО: раніше в HTML була вся розмітка форми входу (showLoginBtn,
+   loginForm, loginEmail, backToRegisterBtn, loginConfirmMessage), але
+   жодних обробників подій на неї не було навішено — тому кнопка
+   "Увійти" візуально існувала, але клік нічого не робив.
+
+   Логіка тут навмисне дзеркальна до форми реєстрації (regForm вище),
+   з двома відмінностями:
+     1. НЕ збирається анкета і НЕ пишеться nalyvay_pending_registration —
+        існуючий профіль підтягується напряму з public.profiles у
+        handleSessionInner() (гілка "already && already.id === userId"
+        або "fetchOwnProfileRow(userId)"), коли людина повернеться за
+        посиланням з листа.
+     2. shouldCreateUser: false — форма входу свідомо НЕ створює новий
+        акаунт. Якщо Email не зареєстрований, Supabase поверне помилку
+        (людині показується alert з підказкою повернутись до реєстрації)
+        замість того, щоб мовчки завести дубль акаунта. */
 
 const showLoginBtn = document.getElementById("showLoginBtn");
 const backToRegisterBtn = document.getElementById("backToRegisterBtn");
@@ -725,7 +742,9 @@ if (backToRegisterBtn && loginForm && regForm) {
 }
 
 if (loginForm) {
+
   loginForm.addEventListener("submit", async e => {
+
     e.preventDefault();
 
     if (!supabaseClient) {
@@ -736,28 +755,34 @@ if (loginForm) {
       return;
     }
 
-    const email = document.getElementById("loginEmail").value.trim();
+    const emailInput = document.getElementById("loginEmail");
+    const email = emailInput ? emailInput.value.trim() : "";
 
     if (!email) {
       alert("Введи Email");
       return;
     }
 
-    console.log("AUTH: sending login link", { email, emailRedirectTo: EMAIL_REDIRECT_TO });
+    console.log("AUTH: sending magic link (login)", { email, emailRedirectTo: EMAIL_REDIRECT_TO });
 
-    /* shouldCreateUser: false — не створюємо новий акаунт через форму
-       входу. Якщо акаунта з таким Email не існує, Supabase поверне
-       помилку (зазвичай "Signups not allowed for otp" або подібну),
-       і ми повідомляємо про це людині нижче. */
-    const { error } = await supabaseClient.auth.signInWithOtp({
-      email: email,
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo: EMAIL_REDIRECT_TO
-      }
-    });
+    const { error } =
+      await supabaseClient.auth.signInWithOtp({
+
+        email: email,
+
+        options: {
+          /* Не створюємо новий акаунт через форму входу. Якщо акаунта
+             з таким Email не існує, Supabase поверне помилку — і ми
+             підкажемо людині повернутись до реєстрації нижче. */
+          shouldCreateUser: false,
+
+          emailRedirectTo: EMAIL_REDIRECT_TO
+        }
+
+      });
 
     if (error) {
+
       console.error("Supabase login email error:", error);
 
       alert(
@@ -784,8 +809,11 @@ if (loginForm) {
     if (loginSubmitButton) {
       loginSubmitButton.hidden = true;
     }
+
   });
+
 }
+
 
 /* ===================== ПЕРЕВІРКА EMAIL / СЕСІЇ =====================
    Перевіряємо сесію у трьох випадках:
@@ -953,18 +981,24 @@ async function handleSessionInner(session) {
 
   /* Немає ні pending-анкети, ні коректного LS.me — пробуємо підтягнути
      анкету напряму з public.profiles (напр. поточний браузер/пристрій
-     інший, ніж той, де заповнювалась форма реєстрації). */
+     інший, ніж той, де заповнювалась форма реєстрації — САМЕ ЦЕЙ ШЛЯХ
+     використовується при вході через форму "Увійти" вище). */
   const row = await fetchOwnProfileRow(userId);
 
   if (row) {
     sessionHandled = true;
     applyLocalProfileAndOpenApp(supabaseRowToLocalMe(row, session.user.email));
+    return;
   }
 
   /* Якщо рядка немає — Email підтверджено, але анкети ще справді
      ніде не існує (ні тут, ні в базі). Це нормально лише для людини,
      яка ще жодного разу не проходила форму реєстрації, — лишаємо її
      на regOverlay, заповнення форми спрацює звичайним шляхом. */
+  console.warn(
+    "AUTH: сесія є, але анкети немає ні локально, ні в public.profiles " +
+    "(userId=" + userId + "). Людина лишається на формі реєстрації."
+  );
 }
 
 async function checkEmailConfirmation() {
