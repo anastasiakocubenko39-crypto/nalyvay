@@ -576,6 +576,14 @@ body{
 .btn-ghost{background:var(--panel-2); color:var(--text); border:1px solid var(--line);}  /* другорядна кнопка */
 .btn-ghost:hover{border-color:var(--green); color:var(--green);}
 .btn-full{width:100%;}                                     /* кнопка на всю ширину контейнера */
+.btn-danger{color:var(--red);}                              /* кнопка небезпечної дії — червоний текст поверх btn-ghost */
+.btn-danger:hover{border-color:var(--red); color:var(--red); background:rgba(200,30,30,0.1);}
+
+/* блок "Вийти / Видалити анкету" внизу вкладки Профіль */
+.profile-danger-zone{
+  padding:0 18px 30px; display:flex; flex-direction:column; gap:10px;
+  margin-top:-10px;
+}
 
 /* ==================================================================
    НИЖНЄ МЕНЮ (навігація по 4 вкладках)
