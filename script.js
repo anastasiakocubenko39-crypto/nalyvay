@@ -259,11 +259,20 @@ function profileToSupabaseRow(profile) {
   return {
     id: profile.id,
     name: profile.name || "",
+    email: profile.email || null,
     birth_date: ageToApproxBirthDate(profile.age),
     gender: profile.gender || null,
     city: buildCityString(profile.settlementName, profile.settlementType),
+    settlement_name: profile.settlementName || null,
     bio: profile.bio || null,
-    is_active: profile.online !== false
+    is_active: profile.online !== false,
+    type: profile.type || "person",
+    language: profile.language || null,
+    settlement_type: profile.settlementType || null,
+    drinks: profile.drinks || null,
+    food: profile.food || null,
+    favorite_place: profile.favoritePlace || null,
+    hobbies: profile.hobbies || null
   };
 }
 
@@ -295,25 +304,26 @@ async function saveProfileToSupabase(profile) {
 }
 
 /* Перетворює рядок із public.profiles на об'єкт у форматі картки
-   NALYVAY (те, що очікує buildCard() та matchesFilters()). Поля, яких
-   немає в таблиці (type/language/drinks/food/favoritePlace/hobbies),
-   підставляються безпечними значеннями за замовчуванням. */
+   NALYVAY (те, що очікує buildCard() та matchesFilters()). Таблиця
+   тепер містить усі поля анкети (після міграції, що додала колонки
+   type/language/drinks/food/favorite_place/hobbies/settlement_type/
+   settlement_name/email) — читаємо їх напряму. */
 function supabaseRowToCard(row) {
   return {
     id: row.id,
     name: row.name || "Без імені",
-    type: "person", // у таблиці немає колонки type — Supabase-профілі завжди показуються як "людина"
+    type: row.type || "person",
     gender: row.gender || "",
-    language: "", // колонки language немає в таблиці
+    language: row.language || "",
     geo: row.city || "Локація не вказана",
     online: row.is_active !== false,
     avatar: "🙂",
     photo: row.photo_url || null,
     age: birthDateToAge(row.birth_date),
-    drinks: "", // колонки drinks немає в таблиці
-    food: "", // колонки food немає в таблиці
-    favoritePlace: "", // колонки favoritePlace немає в таблиці
-    hobbies: "", // колонки hobbies немає в таблиці
+    drinks: row.drinks || "",
+    food: row.food || "",
+    favoritePlace: row.favorite_place || "",
+    hobbies: row.hobbies || "",
     bio: row.bio || "",
     verified: !!(row.phone_verified || row.age_verified),
     _source: "supabase"
@@ -322,24 +332,24 @@ function supabaseRowToCard(row) {
 
 /* Відновлює LS.me з рядка public.profiles (напр. коли людина відкрила
    застосунок на іншому пристрої/після очищення localStorage, але має
-   активну сесію Supabase). Поля, яких немає в таблиці, підставляються
-   розумними значеннями за замовчуванням — їх доведеться заповнити
-   заново через форму профілю, бо в базі їх ніде не було збережено. */
-function supabaseRowToLocalMe(row, email) {
+   активну сесію Supabase). Тепер усі поля анкети читаються напряму з
+   бази — нічого заново заповнювати не треба. email з session.user.email
+   передається як запасний варіант, якщо у profiles.email чомусь порожньо. */
+function supabaseRowToLocalMe(row, sessionEmail) {
   return {
     id: row.id,
-    email: email || null,
+    email: row.email || sessionEmail || null,
     name: row.name || "",
     age: birthDateToAge(row.birth_date),
-    type: "person",
+    type: row.type || "person",
     gender: row.gender || "жінка",
-    language: "Українська",
-    settlementType: "Місто",
-    settlementName: row.city || "",
-    drinks: "",
-    food: "",
-    favoritePlace: "",
-    hobbies: "",
+    language: row.language || "Українська",
+    settlementType: row.settlement_type || "Місто",
+    settlementName: row.settlement_name || row.city || "",
+    drinks: row.drinks || "",
+    food: row.food || "",
+    favoritePlace: row.favorite_place || "",
+    hobbies: row.hobbies || "",
     bio: row.bio || "",
     online: row.is_active !== false,
     avatar: "🙂",
@@ -358,7 +368,7 @@ async function loadRemoteProfiles() {
 
   const { data, error } = await supabaseClient
     .from(PROFILE_TABLE)
-    .select("id,name,birth_date,gender,city,bio,photo_url,phone_verified,age_verified,is_active,created_at")
+    .select("id,name,email,birth_date,gender,city,settlement_type,settlement_name,bio,photo_url,phone_verified,age_verified,is_active,type,language,drinks,food,favorite_place,hobbies,created_at")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -508,6 +518,15 @@ function fillProfileFormFromMe() {
       el.value = value;
     }
   });
+
+  /* Email показуємо лише для читання (немає сенсу дозволяти його
+     редагувати тут — зміна Email вимагає окремого підтвердження через
+     Supabase auth.updateUser, чого поточна форма не реалізує). Поле
+     pEmail — опційне: якщо його немає в HTML, просто нічого не робимо. */
+  const emailField = document.getElementById("pEmail");
+  if (emailField) {
+    emailField.value = me.email || "";
+  }
 
   const onlineToggle =
     document.getElementById("onlineToggle");
@@ -880,7 +899,7 @@ async function fetchOwnProfileRow(userId) {
 
   const { data: row, error } = await supabaseClient
     .from(PROFILE_TABLE)
-    .select("id,name,birth_date,gender,city,bio,photo_url,phone_verified,age_verified,is_active,created_at")
+    .select("id,name,email,birth_date,gender,city,settlement_type,settlement_name,bio,photo_url,phone_verified,age_verified,is_active,type,language,drinks,food,favorite_place,hobbies,created_at")
     .eq("id", userId)
     .maybeSingle();
 
