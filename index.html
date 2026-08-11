@@ -67,7 +67,7 @@
   }, 1000);
 </script>
 
-<!-- ===================== РЕЄСТРАЦІЯ (обов'язкова, показується перший раз) ===================== -->
+<!-- ===================== РЕЄСТРАЦІЯ / ВХІД (обов'язковий екран, показується перший раз) ===================== -->
 <div class="modal-overlay reg-overlay" id="regOverlay">
   <div class="modal reg-card">
     <div class="reg-logo">
@@ -76,6 +76,20 @@
     <p class="eyebrow">крок 1 з 1</p>
     <h2>Створи анкету</h2>
     <p class="reg-sub">Це займе хвилину. Без анкети не можна свайпати й лишати відгуки.</p>
+
+    <!-- ДОДАНО: перемикач для тих, хто вже реєструвався раніше. Без
+         нього єдиний спосіб потрапити в застосунок — заново заповнити
+         всю анкету, навіть якщо акаунт уже існує. Клік ховає regForm і
+         показує компактну форму входу (лише Email). -->
+    <p class="reg-switch">
+      Вже маєш акаунт?
+      <button
+        type="button"
+        id="showLoginBtn"
+        style="background:none;border:none;padding:0;margin:0;color:inherit;text-decoration:underline;cursor:pointer;font:inherit;"
+      >Увійти</button>
+    </p>
+
     <!-- форма реєстрації: усі поля required, окрім фото й опису, обов'язкові —
          без заповненої анкети застосунок далі не пускає (див. showApp() у script.js) -->
    <form id="regForm">
@@ -237,6 +251,45 @@
   </button>
 
 </form>
+
+    <!-- ДОДАНО: компактна форма входу для тих, хто вже має акаунт.
+         Надсилає той самий Magic Link, що й реєстрація, але БЕЗ збору
+         анкети і БЕЗ nalyvay_pending_registration — після підтвердження
+         Email існуючий профіль підтягується напряму з public.profiles
+         (див. handleSession() у script.js). shouldCreateUser:false у
+         signInWithOtp гарантує, що новий акаунт тут не створюється:
+         якщо акаунта з таким Email не існує, людині повідомлять про
+         це і запропонують зареєструватись. -->
+    <form id="loginForm" hidden>
+      <p class="eyebrow">вхід</p>
+      <h2>Увійти в акаунт</h2>
+      <p class="reg-sub">Надішлемо посилання для входу на твій Email — анкету вводити не треба.</p>
+
+      <label>Email
+        <input
+          type="email"
+          id="loginEmail"
+          required
+          placeholder="you@example.com"
+          autocomplete="email"
+        >
+      </label>
+
+      <div id="loginConfirmMessage" class="email-confirm-message" hidden>
+        <h3>📧 Перевір Email</h3>
+        <p>
+          Ми надіслали посилання для входу на
+          <strong id="loginConfirmAddress"></strong>
+        </p>
+        <p>
+          Відкрий лист і натисни
+          <strong>«Log In»</strong>. Тебе автоматично поверне до НАЛИВАЙ.
+        </p>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full">Надіслати посилання для входу</button>
+      <button type="button" class="btn btn-ghost btn-full" id="backToRegisterBtn">← Повернутись до реєстрації</button>
+    </form>
   </div>
 </div>
 <div class="app" id="appRoot">
