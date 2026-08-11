@@ -704,6 +704,88 @@ if (regForm) {
 
 }
 
+/* ===================== ВХІД (для тих, хто вже має акаунт) ===================== */
+
+const showLoginBtn = document.getElementById("showLoginBtn");
+const backToRegisterBtn = document.getElementById("backToRegisterBtn");
+const loginForm = document.getElementById("loginForm");
+
+if (showLoginBtn && loginForm && regForm) {
+  showLoginBtn.addEventListener("click", () => {
+    regForm.hidden = true;
+    loginForm.hidden = false;
+  });
+}
+
+if (backToRegisterBtn && loginForm && regForm) {
+  backToRegisterBtn.addEventListener("click", () => {
+    loginForm.hidden = true;
+    regForm.hidden = false;
+  });
+}
+
+if (loginForm) {
+  loginForm.addEventListener("submit", async e => {
+    e.preventDefault();
+
+    if (!supabaseClient) {
+      alert(
+        "Сервіс входу тимчасово недоступний (не вдалося з'єднатись із Supabase). " +
+        "Онови сторінку і спробуй ще раз."
+      );
+      return;
+    }
+
+    const email = document.getElementById("loginEmail").value.trim();
+
+    if (!email) {
+      alert("Введи Email");
+      return;
+    }
+
+    console.log("AUTH: sending login link", { email, emailRedirectTo: EMAIL_REDIRECT_TO });
+
+    /* shouldCreateUser: false — не створюємо новий акаунт через форму
+       входу. Якщо акаунта з таким Email не існує, Supabase поверне
+       помилку (зазвичай "Signups not allowed for otp" або подібну),
+       і ми повідомляємо про це людині нижче. */
+    const { error } = await supabaseClient.auth.signInWithOtp({
+      email: email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: EMAIL_REDIRECT_TO
+      }
+    });
+
+    if (error) {
+      console.error("Supabase login email error:", error);
+
+      alert(
+        "Не вдалося надіслати посилання для входу: " + error.message +
+        ". Якщо в тебе ще немає акаунта — повернись до реєстрації."
+      );
+
+      return;
+    }
+
+    const loginConfirmMessage = document.getElementById("loginConfirmMessage");
+    const loginConfirmAddress = document.getElementById("loginConfirmAddress");
+
+    if (loginConfirmAddress) {
+      loginConfirmAddress.textContent = email;
+    }
+
+    if (loginConfirmMessage) {
+      loginConfirmMessage.hidden = false;
+    }
+
+    const loginSubmitButton = loginForm.querySelector('button[type="submit"]');
+
+    if (loginSubmitButton) {
+      loginSubmitButton.hidden = true;
+    }
+  });
+}
 
 /* ===================== ПЕРЕВІРКА EMAIL / СЕСІЇ =====================
    Перевіряємо сесію у трьох випадках:
