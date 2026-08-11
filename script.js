@@ -44,6 +44,22 @@ const LS = {
 };
 
 
+/* ===================== ДІАГНОСТИКА AUTH FLOW =====================
+   Тимчасове логування для пошуку точного місця обриву ланцюжка
+   Email -> redirect -> session -> profile -> showApp(). Прибрати
+   (або залишити тільки частину) після підтвердження, що все працює. */
+
+console.log("AUTH: page loaded", {
+  href: window.location.href,
+  origin: window.location.origin,
+  pathname: window.location.pathname,
+  hash: window.location.hash,
+  search: window.location.search,
+  hasHashToken: window.location.hash.includes("access_token"),
+  hasCodeParam: new URLSearchParams(window.location.search).has("code")
+});
+
+
 /* ===================== SUPABASE ===================== */
 
 const SUPABASE_URL =
@@ -51,6 +67,16 @@ const SUPABASE_URL =
 
 const SUPABASE_ANON_KEY =
   "sb_publishable_DIBPiv-9rJowQacsgEBMAw_8GvIxboP";
+
+/* Єдине джерело правди для redirect URL, яка передається в
+   signInWithOtp(). ВАЖЛИВО: ця точна URL (включно зі слешем в кінці)
+   має бути додана в Supabase Dashboard -> Authentication ->
+   URL Configuration -> Redirect URLs. Якщо там немає точного збігу
+   (напр. без "/" в кінці, або http замість https) — Supabase мовчки
+   відхилить redirect і поверне на Site URL за замовчуванням, що й
+   виглядає як "після Email знову форма реєстрації". */
+const EMAIL_REDIRECT_TO =
+  "https://anastasiakocubenko39-crypto.github.io/nalyvay/";
 
 
 let supabaseClient = null;
@@ -359,8 +385,11 @@ function currentMe() {
 }
 
 function showApp() {
+  console.log("AUTH: showApp");
+
   if (regOverlay) {
     regOverlay.hidden = true;
+    console.log("AUTH: registration overlay hidden =", regOverlay.hidden);
   }
 
   fillProfileFormFromMe();
@@ -530,6 +559,8 @@ if (regForm) {
 
     /* Відправляємо Magic Link */
 
+    console.log("AUTH: sending magic link", { email, emailRedirectTo: EMAIL_REDIRECT_TO });
+
     const { error } =
       await supabaseClient.auth.signInWithOtp({
 
@@ -538,8 +569,7 @@ if (regForm) {
         options: {
           shouldCreateUser: true,
 
-          emailRedirectTo:
-            "https://anastasiakocubenko39-crypto.github.io/nalyvay/"
+          emailRedirectTo: EMAIL_REDIRECT_TO
         }
 
       });
@@ -604,20 +634,7 @@ if (regForm) {
 
 
 /* ===================== ПЕРЕВІРКА EMAIL / СЕСІЇ =====================
-   ВИПРАВЛЕНО (борг: "після підтвердження Email користувача знову
-   кидає на форму реєстрації"):
-
-   Стара версія checkEmailConfirmation() відкривала застосунок
-   (showApp()) ЛИШЕ якщо в localStorage лежав "nalyvay_pending_registration".
-   Але цей ключ видаляється одразу після першого успішного опрацювання —
-   тож будь-яке НАСТУПНЕ повернення на сайт (інший тик/вкладка/пристрій,
-   або магік-лінк відкрився в іншому браузері, напр. вбудованому
-   браузері поштового застосунку) залишало pending == null. У такому
-   разі функція просто виходила (return), showApp() не викликався,
-   і людина бачила forever форму реєстрації, попри активну сесію
-   Supabase і вже підтверджений Email.
-
-   Нова логіка (handleSession) перевіряє сесію в трьох випадках:
+   Перевіряємо сесію у трьох випадках:
      1. є pending-анкета   -> зберігаємо її в Supabase, showApp().
      2. немає pending, але LS.me вже належить цьому користувачу
                            -> просто showApp() (нема що підтягувати).
@@ -629,9 +646,42 @@ if (regForm) {
    pending, ні LS.me, ні рядка в базі) — людина залишається на формі
    реєстрації, бо реєструватись їй справді ще треба. */
 
-/* Захист від повторного відновлення профілю в межах одного
-   завантаження сторінки: checkEmailConfirmation() і onAuthStateChange
-   (див. нижче) можуть спрацювати майже одночасно. */
+/* ВИПРАВЛЕНО (гонка умов): checkEmailConfirmation() (виклик під час
+   ініціалізації) і onAuthStateChange (SIGNED_IN / TOKEN_REFRESHED /
+   INITIAL_SESSION, див. нижче) можуть спрацювати практично одночасно
+   одразу після повернення з Email. Раніше захист від дублювання
+   (sessionHandled) був простим boolean-прапорцем, який виставлявся
+   ЛИШЕ після завершення upsert'у в Supabase — тобто поки перший
+   виклик handleSession() ще "висів" на await saveProfileToSupabase(),
+   другий виклик встигав пройти ту саму перевірку (sessionHandled ===
+   false) і запускав ДРУГИЙ паралельний upsert / читання pending-
+   реєстрації. У гіршому випадку це могло призвести до того, що один
+   із двох паралельних викликів бачив pendingRaw === null (бо інший
+   встиг його видалити) і йшов гілкою "немає ні pending, ні LS.me" —
+   тобто НЕ показував showApp(), користувач лишався на формі
+   реєстрації, хоча Email вже підтверджено і сесія вже є.
+   Тепер handleSession() — це тонка обгортка з промісом-блокуванням:
+   якщо виклик уже виконується, наступний виклик просто чекає на той
+   самий проміс замість того, щоб запускати паралельну спробу. */
+let handleSessionInFlight = null;
+
+async function handleSession(session) {
+  if (!session || !session.user) return;
+
+  if (handleSessionInFlight) {
+    await handleSessionInFlight;
+    return;
+  }
+
+  handleSessionInFlight = handleSessionInner(session);
+
+  try {
+    await handleSessionInFlight;
+  } finally {
+    handleSessionInFlight = null;
+  }
+}
+
 let sessionHandled = false;
 
 function applyLocalProfileAndOpenApp(meObject) {
@@ -660,10 +710,12 @@ async function fetchOwnProfileRow(userId) {
   return row || null;
 }
 
-async function handleSession(session) {
-  if (!session || !session.user) return;
+async function handleSessionInner(session) {
+  console.log("AUTH: handleSession started", session);
 
   const userId = session.user.id;
+  console.log("AUTH: user id =", userId);
+
   const already = currentMe();
 
   if (sessionHandled && already && already.id === userId) {
@@ -671,6 +723,7 @@ async function handleSession(session) {
   }
 
   const pendingRaw = localStorage.getItem("nalyvay_pending_registration");
+  console.log("AUTH: pending registration =", pendingRaw);
 
   if (pendingRaw) {
     let registration = null;
@@ -689,11 +742,10 @@ async function handleSession(session) {
       registration.email = session.user.email;
       registration.verified = true;
 
-      /* ЗАПИС АНКЕТИ В SUPABASE (INSERT/UPSERT). Якщо запис у базу не
-         вдався, анкету все одно зберігаємо локально (щоб людина не
-         втратила щойно заповнену форму), але чесно повідомляємо її
-         про проблему, а не мовчимо. */
-      const { error: saveError } = await saveProfileToSupabase(registration);
+      /* ЗАПИС АНКЕТИ В SUPABASE (INSERT/UPSERT). */
+      console.log("AUTH: saving profile", registration);
+
+      const { data: savedRow, error: saveError } = await saveProfileToSupabase(registration);
 
       if (saveError) {
         console.error("Не вдалося записати анкету в Supabase:", saveError);
@@ -701,12 +753,28 @@ async function handleSession(session) {
         alert(
           "Email підтверджено, анкету збережено локально, але не вдалося " +
           "записати її в базу даних: " + saveError.message + ". " +
-          "Спробуй зберегти профіль ще раз на вкладці «Профіль»."
+          "Спробуй зберегти профіль ще раз на вкладці «Профіль» — " +
+          "спробу запису буде повторено автоматично."
         );
-      }
 
-      localStorage.removeItem("nalyvay_pending_registration");
-      pendingRegistration = null;
+        /* ВИПРАВЛЕНО: раніше nalyvay_pending_registration видалявся
+           одразу, НЕЗАЛЕЖНО від успіху upsert'у в Supabase. Якщо запис
+           у базу не вдавався (напр. тимчасова мережева помилка), дані
+           не губились лише тому, що вони вже осідали в LS.me — але
+           автоматичного повторного запису в базу при наступному
+           відкритті сайту не було, бо pendingRaw уже видалили. Тепер
+           pending-анкета видаляється ЛИШЕ при успішному upsert; якщо
+           запис не вдався, вона лишається в localStorage, і наступний
+           виклик handleSession() (напр. після оновлення сторінки)
+           автоматично спробує зберегти її в Supabase ще раз. Людина
+           при цьому одразу потрапляє в застосунок (showApp() нижче) —
+           вона НЕ залишається мовчки на формі реєстрації. */
+      } else {
+        console.log("AUTH: profile saved", savedRow);
+
+        localStorage.removeItem("nalyvay_pending_registration");
+        pendingRegistration = null;
+      }
 
       sessionHandled = true;
       applyLocalProfileAndOpenApp(registration);
@@ -755,6 +823,7 @@ async function checkEmailConfirmation() {
     } =
       await supabaseClient.auth.getSession();
 
+    console.log("AUTH: session =", session);
 
     if (error) {
 
@@ -788,10 +857,13 @@ async function checkEmailConfirmation() {
    а трохи пізніше supabase-js сам згенерує подію SIGNED_IN. Без цього
    слухача людина в такому випадку так і лишалась би на формі
    реєстрації, хоча Email уже підтверджено. handleSession() всередині
-   ідемпотентний (прапорець sessionHandled), тож повторний виклик
-   після checkEmailConfirmation() безпечний і не дублює запити. */
+   ідемпотентний (проміс-блокування handleSessionInFlight + прапорець
+   sessionHandled), тож повторний виклик після checkEmailConfirmation()
+   безпечний і не дублює запити. */
 if (supabaseClient) {
   supabaseClient.auth.onAuthStateChange((event, session) => {
+    console.log("AUTH: onAuthStateChange", event, session);
+
     if (
       event === "SIGNED_IN" ||
       event === "TOKEN_REFRESHED" ||
@@ -803,17 +875,7 @@ if (supabaseClient) {
 }
 
 
-/* ===================== ЗАПУСК АВТЕНТИФІКАЦІЇ/АНКЕТ =====================
-   1. Якщо анкета вже є локально (LS.me) — одразу показуємо застосунок,
-      не чекаючи мережі (регістрація повторно не показується). Сесію й
-      актуальність анкети все одно звіримо нижче через
-      checkEmailConfirmation() -> handleSession().
-   2. checkEmailConfirmation() — і сценарій Magic Link (підхоплює
-      nalyvay_pending_registration після повернення з листа), і
-      сценарій "уже є активна сесія Supabase, але LS.me порожній чи
-      належить іншому користувачу" (напр. інший пристрій/браузер або
-      очищений localStorage) — обидва тепер оброблені в handleSession().
-   3. У будь-якому разі підвантажуємо анкети інших користувачів. */
+/* ===================== ЗАПУСК АВТЕНТИФІКАЦІЇ/АНКЕТ ===================== */
 
 async function initAuthAndProfiles() {
 
@@ -933,16 +995,6 @@ document.getElementById("filterResetBtn").addEventListener("click", ()=>{
 const deckEl = document.getElementById("deck");
 const deckEmpty = document.getElementById("deckEmpty");
 const deckEmptyText = document.getElementById("deckEmptyText");
-/* ВИПРАВЛЕНО (аудит, п.11 запиту):
-   У наданих файлах проєкту (index.html + script.js) немає жодного
-   <script>, що визначає SEED_PROFILES — а він використовується нижче.
-   Якщо на живому сайті такий файл (напр. seed-data.js) підключений
-   окремо — цей рядок нічого не змінює, typeof-перевірка його не займає.
-   Але якщо файл раптом не підключений/не завантажився — раніше це був
-   ReferenceError: SEED_PROFILES is not defined, який зупиняв ВЕСЬ код
-   нижче (свайп-колоду, карту, чати, збереження профілю). Тепер у такому
-   випадку колода просто буде порожньою, а решта застосунку продовжує
-   працювати. */
 if (typeof SEED_PROFILES === "undefined") {
   console.error(
     "SEED_PROFILES не знайдено. Переконайся, що файл із анкетами " +
@@ -964,16 +1016,8 @@ function hasPassedProfiles(){
   return Object.values(swipes).includes("pass");
 }
 
-/* Основне джерело анкет — supabaseClient.from("profiles") (кеш
-   remoteProfiles, який оновлює refreshRemoteProfiles()).
-   SEED_PROFILES_SAFE використовується ЛИШЕ як fallback, і тільки поки
-   Supabase ще не встиг завантажитись АБО коли реальних анкет у базі
-   немає (порожня база) — реальні користувачі від тестових профілів
-   відрізняються полем _source ("supabase" проти відсутнього/"seed"). */
 function sourceProfiles(){
   if(!remoteProfilesLoaded){
-    // Supabase ще не відповів — тимчасово показуємо seed, щоб екран
-    // не був порожнім при першому рендері.
     return SEED_PROFILES_SAFE;
   }
   return remoteProfiles.length > 0 ? remoteProfiles : SEED_PROFILES_SAFE;
@@ -1221,9 +1265,6 @@ document.getElementById("threadForm").addEventListener("submit", e=>{
   renderThreadMessages(id);
 
   setTimeout(()=>{
-    /* ВИПРАВЛЕНО: та сама страховка, що й для SEED_PROFILES — якщо
-       AUTO_REPLIES ніде не визначено, підставляємо один нейтральний
-       варіант замість падіння з ReferenceError. */
     const repliesSafe =
       (typeof AUTO_REPLIES !== "undefined" && Array.isArray(AUTO_REPLIES) && AUTO_REPLIES.length)
         ? AUTO_REPLIES
@@ -1430,7 +1471,9 @@ document.getElementById("profileForm").addEventListener("submit", async e=>{
   /* UPDATE анкети в Supabase (та сама функція, що й для реєстрації —
      upsert по id; RLS дозволяє це лише для власного профілю). Якщо
      людина ще не підтвердила Email (updated.id відсутній), апдейт
-     у базу пропускається — зберігати нема куди, це очікувано. */
+     у базу пропускається — зберігати нема куди, це очікувано. Це
+     також природний "ретрай" для випадку, коли перший запис у базу
+     після Email не вдався (див. коментар у handleSessionInner). */
   if (updated.id) {
     const { error } = await saveProfileToSupabase(updated);
 
@@ -1443,9 +1486,6 @@ document.getElementById("profileForm").addEventListener("submit", async e=>{
       note.hidden = false;
       setTimeout(()=> note.hidden = true, 1800);
 
-      /* Оновлюємо кеш чужих анкет — інші вже побачать зміну при
-         наступному завантаженні їхнього застосунку (SELECT читає базу
-         напряму, тут це лише про власний кеш поточної вкладки). */
       if (typeof refreshRemoteProfiles === "function") {
         refreshRemoteProfiles();
       }
