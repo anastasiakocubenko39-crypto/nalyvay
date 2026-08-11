@@ -366,11 +366,12 @@ async function loadRemoteProfiles() {
   const me = currentMe();
   const myId = me && me.id;
 
-  const { data, error } = await supabaseClient
-    .from(PROFILE_TABLE)
+
+const { data, error } = await supabaseClient
+    .from("profiles_public")
     .select("id,name,email,birth_date,gender,city,settlement_type,settlement_name,bio,photo_url,phone_verified,age_verified,is_active,type,language,drinks,food,favorite_place,hobbies,created_at")
     .order("created_at", { ascending: false });
-
+  
   if (error) {
     console.error("Supabase select profiles error:", error);
     return [];
