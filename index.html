@@ -77,10 +77,8 @@
     <h2>Створи анкету</h2>
     <p class="reg-sub">Це займе хвилину. Без анкети не можна свайпати й лишати відгуки.</p>
 
-    <!-- ДОДАНО: перемикач для тих, хто вже реєструвався раніше. Без
-         нього єдиний спосіб потрапити в застосунок — заново заповнити
-         всю анкету, навіть якщо акаунт уже існує. Клік ховає regForm і
-         показує компактну форму входу (лише Email). -->
+    <!-- перемикач для тих, хто вже реєструвався раніше. Клік ховає
+         regForm і показує компактну форму входу (лише Email). -->
     <p class="reg-switch">
       Вже маєш акаунт?
       <button
@@ -252,7 +250,7 @@
 
 </form>
 
-    <!-- ДОДАНО: компактна форма входу для тих, хто вже має акаунт.
+    <!-- компактна форма входу для тих, хто вже має акаунт.
          Надсилає той самий Magic Link, що й реєстрація, але БЕЗ збору
          анкети і БЕЗ nalyvay_pending_registration — після підтвердження
          Email існуючий профіль підтягується напряму з public.profiles
@@ -308,10 +306,6 @@
     </div>
   </header>
 
-  <!-- ВИПРАВЛЕНО: раніше тут не було відкриваючого тегу <main class="screens">
-       (загубився через биту копію файлу), через що весь ланцюжок висот
-       .screens → .screen → .deck-wrap → .deck → .swipe-card не працював,
-       і анкети "спадали" до крихітного розміру замість повного екрана. -->
   <main class="screens">
 
     <!-- ===================== SWIPE ===================== -->
@@ -372,8 +366,6 @@
           <div class="avatar-actions">
             <div class="avatar-circle" id="avatarPreview">🙂</div>
             <label class="avatar-upload-label" for="pPhoto">Змінити фото</label>
-            <!-- ВИПРАВЛЕНО: було accept="image/" (без зірочки) — деякі браузери
-                 не приймали жоден файл. Тепер accept="image/*". -->
             <input type="file" accept="image/*" id="pPhoto" class="photo-input">
           </div>
           <label class="online-toggle">
@@ -396,6 +388,15 @@
             <p class="verify-msg" id="verifyMsg" hidden></p>
           </div>
         </div>
+
+        <!-- ДОДАНО: Email показується лише для читання — його зміна
+             вимагає окремого підтвердження через Supabase Auth, чого
+             ця форма не робить. Поле не входить у профіль-картку,
+             яку бачать інші користувачі, це суто інформаційне поле
+             для власника анкети. -->
+        <label>Email
+          <input type="email" id="pEmail" readonly disabled style="opacity:0.65;cursor:not-allowed;">
+        </label>
 
         <label>Ім'я або назва компанії
           <input type="text" id="pName" required placeholder="Твоє ім'я">
@@ -600,13 +601,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- ВИПРАВЛЕНО: раніше тут ще й був окремий інлайн-скрипт, який ЗАНОВО
-     оголошував `const supabaseClient`, а це саме вже робить script.js.
-     Через подвійне `const supabaseClient` браузер кидав
-     "SyntaxError: Identifier 'supabaseClient' has already been declared",
-     і script.js повністю переставав виконуватись — звідси й непрацююча
-     кнопка "Пропустити", і всі інші зламані кнопки/картки. Тепер
-     supabaseClient оголошується РІВНО ОДИН раз, всередині script.js. -->
 <script src="script.js"></script>
 </body>
 </html>
