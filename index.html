@@ -1,16 +1,24 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
+<!--
+  НАЛИВАЙ — розмітка застосунку (index.html)
+  Коментарі українською стоять перед кожним значущим блоком і пояснюють,
+  за що він відповідає.
+-->
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>НАЛИВАЙ — знайомства для тих, хто хоче випити не наодинці</title>
 
+<!-- підключення шрифтів Google Fonts: Unbounded — для заголовків, Manrope — для основного тексту -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- бібліотека Leaflet — інтерактивна карта закладів на вкладці "Заклади" -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- ===================== ФОНОВИЙ ШАР НА ВЕСЬ ЕКРАН ===================== -->
 <div id="bgStage" aria-hidden="true">
   <div class="bg-stripes"></div>
   <div class="bg-emblem"></div>
@@ -24,6 +32,8 @@
   <span class="ember"></span>
 </div>
 
+
+<!-- ===================== ІНТРО-ВІДЕО ===================== -->
 <div class="intro-overlay" id="introOverlay">
   <video id="introVideo" autoplay muted playsinline preload="auto">
     <source src="intro.mp4" type="video/mp4">
@@ -42,6 +52,8 @@
   </div>
 </div>
 
+
+<!-- ===================== АВТОМАТИЧНЕ ЗАКРИТТЯ ЗАСТАВКИ ===================== -->
 <script>
   setTimeout(function () {
 
@@ -55,7 +67,7 @@
   }, 1000);
 </script>
 
-
+<!-- ===================== РЕЄСТРАЦІЯ / ВХІД (обов'язковий екран, показується перший раз) ===================== -->
 <div class="modal-overlay reg-overlay" id="regOverlay">
   <div class="modal reg-card">
     <div class="reg-logo">
@@ -65,6 +77,8 @@
     <h2>Створи анкету</h2>
     <p class="reg-sub">Це займе хвилину. Без анкети не можна свайпати й лишати відгуки.</p>
 
+    <!-- перемикач для тих, хто вже реєструвався раніше. Клік ховає
+         regForm і показує компактну форму входу (лише Email). -->
     <p class="reg-switch">
       Вже маєш акаунт?
       <button
@@ -74,6 +88,8 @@
       >Увійти</button>
     </p>
 
+    <!-- форма реєстрації: усі поля required, окрім фото й опису, обов'язкові —
+         без заповненої анкети застосунок далі не пускає (див. showApp() у script.js) -->
    <form id="regForm">
 
   <label>Ім'я або назва компанії
@@ -152,7 +168,7 @@
     </label>
   </div>
 
-  <label> Що любиш пити
+  <label>🍺 Що любиш пити
     <input
       type="text"
       id="regDrinks"
@@ -161,7 +177,7 @@
     >
   </label>
 
-  <label> Що любиш їсти
+  <label>🍴 Що любиш їсти
     <input
       type="text"
       id="regFood"
@@ -169,7 +185,7 @@
     >
   </label>
 
-  <label> Улюблений заклад
+  <label>⭐ Улюблений заклад
     <input
       type="text"
       id="regFavPlace"
@@ -177,7 +193,7 @@
     >
   </label>
 
-  <label> Куди любиш ходити / хобі
+  <label>🚶 Куди любиш ходити / хобі
     <input
       type="text"
       id="regHobbies"
@@ -234,7 +250,14 @@
 
 </form>
 
-   
+    <!-- компактна форма входу для тих, хто вже має акаунт.
+         Надсилає той самий Magic Link, що й реєстрація, але БЕЗ збору
+         анкети і БЕЗ nalyvay_pending_registration — після підтвердження
+         Email існуючий профіль підтягується напряму з public.profiles
+         (див. handleSession() у script.js). shouldCreateUser:false у
+         signInWithOtp гарантує, що новий акаунт тут не створюється:
+         якщо акаунта з таким Email не існує, людині повідомлять про
+         це і запропонують зареєструватись. -->
     <form id="loginForm" hidden>
       <p class="eyebrow">вхід</p>
       <h2>Увійти в акаунт</h2>
@@ -285,6 +308,7 @@
 
   <main class="screens">
 
+    <!-- ===================== SWIPE ===================== -->
     <section id="screen-swipe" class="screen active">
       <div class="deck-wrap">
         <div class="deck" id="deck"></div>
@@ -296,7 +320,7 @@
       </div>
     </section>
 
- 
+    <!-- ===================== ЗАКЛАДИ / КАРТА ===================== -->
     <section id="screen-bars" class="screen">
       <div class="section-head">
         <p class="eyebrow">карта міста</p>
@@ -310,6 +334,7 @@
       </div>
     </section>
 
+    <!-- ===================== ЧАТИ ===================== -->
     <section id="screen-chats" class="screen">
       <div class="section-head">
         <p class="eyebrow">метчі</p>
@@ -330,6 +355,7 @@
       </div>
     </section>
 
+    <!-- ===================== ПРОФІЛЬ ===================== -->
     <section id="screen-profile" class="screen">
       <div class="section-head">
         <p class="eyebrow">твоя анкета</p>
@@ -363,6 +389,11 @@
           </div>
         </div>
 
+        <!-- ДОДАНО: Email показується лише для читання — його зміна
+             вимагає окремого підтвердження через Supabase Auth, чого
+             ця форма не робить. Поле не входить у профіль-картку,
+             яку бачать інші користувачі, це суто інформаційне поле
+             для власника анкети. -->
         <label>Email
           <input type="email" id="pEmail" readonly disabled style="opacity:0.65;cursor:not-allowed;">
         </label>
@@ -450,6 +481,7 @@
 
 </div>
 
+<!-- ===================== МЕТЧ MODAL ===================== -->
 <div class="modal-overlay match-overlay" id="matchOverlay" hidden>
   <div class="match-card">
     <p class="match-eyebrow">🔥 Це метч!</p>
@@ -462,6 +494,7 @@
   </div>
 </div>
 
+<!-- ===================== МОДАЛКА ЗАКЛАДУ ===================== -->
 <div class="modal-overlay" id="placeModalOverlay" hidden>
   <div class="modal">
     <button type="button" class="modal-close" id="placeModalCloseBtn">×</button>
@@ -494,6 +527,7 @@
   </div>
 </div>
 
+<!-- ===================== ФІЛЬТРИ / РОЗШИРЕНИЙ ПОШУК ===================== -->
 <div class="modal-overlay" id="filterModalOverlay" hidden>
   <div class="modal">
     <button type="button" class="modal-close" id="filterModalCloseBtn">×</button>
@@ -555,6 +589,7 @@
   </div>
 </div>
 
+<!-- ===================== ПРЕВ'Ю АНКЕТИ ===================== -->
 <div class="modal-overlay" id="previewModalOverlay" hidden>
   <div class="modal">
     <button type="button" class="modal-close" id="previewModalCloseBtn">×</button>
@@ -567,8 +602,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="script.js"></script>
-
-  <script>
+ 
+ <script>
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('keydown', e => {
   if (e.key === 'F12' ||
@@ -578,6 +613,6 @@ document.addEventListener('keydown', e => {
   }
 });
 </script>
-  
+ 
 </body>
 </html>
