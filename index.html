@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <!--
   НАЛИВАЙ — розмітка застосунку (index.html)
   Коментарі українською стоять перед кожним значущим блоком і пояснюють,
@@ -602,5 +602,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="script.js"></script>
+
+  <script>
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('keydown', e => {
+  if (e.key === 'F12' ||
+      (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key)) ||
+      (e.ctrlKey && e.key === 'U')) {
+    e.preventDefault();
+  }
+});
+</script>
+  
 </body>
 </html>
