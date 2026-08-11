@@ -321,6 +321,29 @@ body{
   margin-top:16px;
 }
 
+/* фізичні кнопки Пропустити/Лайк — надійна альтернатива жесту перетягування,
+   потрібна на пристроях/браузерах, де touch-drag працює нестабільно
+   (напр. вбудований браузер Telegram) */
+.swipe-actions{
+  position:absolute; left:0; right:0; bottom:44px; z-index:6;
+  display:flex; justify-content:center; gap:26px;
+  pointer-events:none; /* сам контейнер не заважає drag-жесту картки під ним */
+}
+.swipe-action-btn{
+  pointer-events:auto;
+  width:56px; height:56px; flex-shrink:0;
+  border:2px solid var(--line);
+  background:rgba(12,5,3,0.8); backdrop-filter:blur(6px);
+  color:var(--text); font-size:22px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 10px 24px -8px rgba(0,0,0,0.7);
+  transition:transform .12s ease, border-color .15s;
+}
+.swipe-action-btn:active{transform:scale(0.88);}
+.swipe-action-pass{color:var(--red); border-color:var(--red);}
+.swipe-action-pass:hover{box-shadow:0 0 14px var(--red-glow), 0 10px 24px -8px rgba(0,0,0,0.7);}
+.swipe-action-like{color:var(--green); border-color:var(--green); box-shadow:0 0 16px var(--green-glow), 0 10px 24px -8px rgba(0,0,0,0.7);}
+
 /* Картки "ливітують": плавно гойдаються вгору-вниз (translateY), а власна
    тінь під колодою окремо "дихає" (.deck::after нижче) — разом це створює
    ефект острівця, що висить у повітрі над власною тінню. */
