@@ -191,6 +191,18 @@ async function exchangePkceCodeIfPresent() {
    Анонімні (не залогінені) відвідувачі не мають жодної policy на цю
    таблицю => нічого з неї не читають. Це відповідає вимозі проєкту.
 
+   ДОДАНО: public.profiles_public — view поверх public.profiles, яка
+   ховає email від усіх, окрім власника рядка (auth.uid() = id). Усі
+   інші поля анкети (ім'я, фото, вподобання, локація, тощо) видно
+   будь-якому залогіненому користувачу, як і раніше через RLS вихідної
+   таблиці (view створена з security_invoker = true, тож поважає ту
+   саму policy "is_active = true"). Ця view використовується ЛИШЕ для
+   читання анкет ІНШИХ користувачів (loadRemoteProfiles нижче) — для
+   читання/запису ВЛАСНОГО профілю (fetchOwnProfileRow,
+   saveProfileToSupabase) і далі використовується пряма таблиця
+   public.profiles (PROFILE_TABLE), бо там потрібен повний доступ,
+   включно з власним email і можливістю запису.
+
    ВАЖЛИВО — чого НЕМАЄ в цій таблиці (і що ми свідомо НЕ пишемо туди,
    щоб не змінювати структуру без команди):
      type (людина/заклад), language, settlementType (окремо від city),
@@ -201,6 +213,10 @@ async function exchangePkceCodeIfPresent() {
    свідомий компроміс, а не помилка — див. підсумковий звіт у чаті. */
 
 const PROFILE_TABLE = "profiles";
+
+/* Таблиця/view, з якої читаються анкети ІНШИХ користувачів (список,
+   колода свайпів). Ховає email від усіх, окрім власника анкети. */
+const PROFILES_PUBLIC_VIEW = "profiles_public";
 
 /* Форма реєстрації/профілю питає "вік" (число), а в таблиці є лише
    "birth_date" (дата). Точної дати народження ми не збираємо, тож
@@ -278,7 +294,8 @@ function profileToSupabaseRow(profile) {
 
 /* INSERT/UPDATE анкети відбувається саме тут: upsert по первинному
    ключу id (auth.uid()). RLS дозволяє це лише коли auth.uid() === id,
-   тобто користувач може писати виключно свою анкету. */
+   тобто користувач може писати виключно свою анкету. Пишемо напряму в
+   public.profiles (не у view — view лише для читання чужих анкет). */
 async function saveProfileToSupabase(profile) {
   if (!supabaseClient) {
     return { data: null, error: new Error("supabaseClient недоступний") };
@@ -303,11 +320,12 @@ async function saveProfileToSupabase(profile) {
   return { data, error };
 }
 
-/* Перетворює рядок із public.profiles на об'єкт у форматі картки
-   NALYVAY (те, що очікує buildCard() та matchesFilters()). Таблиця
-   тепер містить усі поля анкети (після міграції, що додала колонки
-   type/language/drinks/food/favorite_place/hobbies/settlement_type/
-   settlement_name/email) — читаємо їх напряму. */
+/* Перетворює рядок із public.profiles (або public.profiles_public) на
+   об'єкт у форматі картки NALYVAY (те, що очікує buildCard() та
+   matchesFilters()). Таблиця тепер містить усі поля анкети (після
+   міграції, що додала колонки type/language/drinks/food/
+   favorite_place/hobbies/settlement_type/settlement_name/email) —
+   читаємо їх напряму. */
 function supabaseRowToCard(row) {
   return {
     id: row.id,
@@ -358,22 +376,25 @@ function supabaseRowToLocalMe(row, sessionEmail) {
   };
 }
 
-/* SELECT анкет відбувається саме тут: усі активні анкети (RLS уже сам
-   фільтрує is_active = true), окрім анкети поточного користувача. */
+/* SELECT анкет ІНШИХ користувачів відбувається саме тут: усі активні
+   анкети (RLS уже сам фільтрує is_active = true), окрім анкети
+   поточного користувача. ВАЖЛИВО: читаємо з public.profiles_public
+   (view), а не з public.profiles напряму — view ховає email усіх,
+   окрім власника рядка, тож у колоді/пошуку чужий email ніколи не
+   потрапляє на клієнт. */
 async function loadRemoteProfiles() {
   if (!supabaseClient) return [];
 
   const me = currentMe();
   const myId = me && me.id;
 
-
-const { data, error } = await supabaseClient
-    .from("profiles_public")
+  const { data, error } = await supabaseClient
+    .from(PROFILES_PUBLIC_VIEW)
     .select("id,name,email,birth_date,gender,city,settlement_type,settlement_name,bio,photo_url,phone_verified,age_verified,is_active,type,language,drinks,food,favorite_place,hobbies,created_at")
     .order("created_at", { ascending: false });
-  
+
   if (error) {
-    console.error("Supabase select profiles error:", error);
+    console.error("Supabase select profiles_public error:", error);
     return [];
   }
 
@@ -891,7 +912,10 @@ function applyLocalProfileAndOpenApp(meObject) {
   showApp();
 }
 
-/* Дістає рядок анкети з public.profiles за id користувача Supabase.
+/* Дістає рядок ВЛАСНОЇ анкети з public.profiles за id користувача
+   Supabase. ВАЖЛИВО: читаємо з прямої таблиці public.profiles
+   (PROFILE_TABLE), а НЕ з view profiles_public — бо тут потрібен
+   власний email і саме конкретний рядок за userId (.eq + maybeSingle).
    Повертає null, якщо рядка ще немає (напр. магік-лінк відкрився в
    іншому браузері/пристрої, де pending-анкети не було, тож анкету
    ще ніде не зберегли). */
@@ -899,9 +923,10 @@ async function fetchOwnProfileRow(userId) {
   if (!supabaseClient) return null;
 
   const { data: row, error } = await supabaseClient
-   .from("profiles_public")
+    .from(PROFILE_TABLE)
     .select("id,name,email,birth_date,gender,city,settlement_type,settlement_name,bio,photo_url,phone_verified,age_verified,is_active,type,language,drinks,food,favorite_place,hobbies,created_at")
-    .order("created_at", { ascending: false });
+    .eq("id", userId)
+    .maybeSingle();
 
   if (error) {
     console.error("Не вдалося отримати анкету з Supabase:", error);
