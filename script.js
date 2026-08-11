@@ -94,6 +94,78 @@ try {
 }
 
 
+/* ===================== PKCE: ЯВНИЙ ОБМІН ?code=... НА СЕСІЮ =====================
+   ГОЛОВНЕ ВИПРАВЛЕННЯ цього кола проблем ("після Email знову форма
+   реєстрації"):
+
+   Сучасні версії supabase-js (у т.ч. @supabase/supabase-js@2, який
+   підключений через CDN у index.html) за замовчуванням використовують
+   PKCE-флоу для Magic Link. Це означає, що посилання з листа веде на
+   ваш сайт з параметром "?code=XXXXXXXX" в адресному рядку — а НЕ зі
+   старим "#access_token=...", як було в implicit-флоу.
+
+   supabase-js вміє сам розпізнати "?code=" і обміняти його на сесію
+   (detectSessionInUrl: true, увімкнено за замовчуванням), АЛЕ для
+   цього потрібен "code_verifier" — секрет, який клієнт зберігає у
+   localStorage/sessionStorage В ТОМУ Ж САМОМУ БРАУЗЕРІ, звідки
+   надсилався лист (signInWithOtp). Якщо посилання відкривається:
+     - в іншому браузері на тому ж пристрої,
+     - у вбудованому браузері поштового застосунку (дуже частий
+       випадок на телефонах — Gmail, Outlook та інші відкривають
+       посилання у власному WebView, а не в системному браузері),
+     - або якщо localStorage було очищено між відправкою листа й
+       переходом по посиланню,
+   — code_verifier відсутній, обмін коду на сесію мовчки не
+   відбувається (або падає з помилкою "invalid code verifier"), сесії
+   немає, getSession() повертає null — і людина знову бачить форму
+   реєстрації, хоча Email технічно підтверджено.
+
+   Це виправлення додає ЯВНИЙ виклик exchangeCodeForSession(), який:
+     1. Перевіряє, чи є "?code=" в поточному URL.
+     2. Якщо є — намагається обміняти його на сесію напряму, а не
+        покладається лише на автоматичне розпізнавання.
+     3. Логує результат у консоль (успіх/помилку), щоб було видно,
+        яка саме причина — відсутній code_verifier чи щось інше.
+     4. Прибирає "?code=..." з адресного рядка після обробки, щоб він
+        не намагався обмінятись повторно при оновленні сторінки.
+   Викликається один раз при старті, ДО checkEmailConfirmation(). */
+async function exchangePkceCodeIfPresent() {
+  if (!supabaseClient) return;
+
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get("code");
+
+  if (!code) return;
+
+  console.log("AUTH: у URL знайдено PKCE ?code=, намагаюсь обміняти на сесію");
+
+  try {
+    const { data, error } =
+      await supabaseClient.auth.exchangeCodeForSession(window.location.href);
+
+    if (error) {
+      /* Найчастіша причина саме цієї помилки — лист відкрився в
+         іншому браузері/вебв'ю, ніж той, де його замовляли (немає
+         code_verifier). Єдиний надійний вихід у такому разі —
+         попросити людину повторно натиснути "Увійти"/"Почати
+         знайомитись" у ТОМУ Ж браузері, де вона зараз знаходиться:
+         тоді піде новий лист, і code_verifier буде коректним. */
+      console.error("AUTH: не вдалося обміняти code на сесію:", error);
+    } else {
+      console.log("AUTH: code успішно обміняно на сесію", data && data.session);
+    }
+  } catch (err) {
+    console.error("AUTH: виняток під час обміну code на сесію:", err);
+  }
+
+  // Прибираємо ?code=... з адресного рядка (і лишаємо решту query,
+  // якщо там було щось інше), щоб при оновленні сторінки браузер не
+  // намагався обмінятись тим самим (уже використаним) кодом повторно.
+  url.searchParams.delete("code");
+  window.history.replaceState({}, document.title, url.toString());
+}
+
+
 /* ===================== SUPABASE: ТАБЛИЦЯ ПРОФІЛІВ =====================
    Перевірено напряму в проєкті Supabase "nalyvay" (yecjmwgmfwqgxbiggeby)
    через Supabase MCP (list_tables + pg_policies). Існуюча таблиця:
@@ -884,6 +956,10 @@ async function initAuthAndProfiles() {
   }
 
   if (supabaseClient) {
+    /* ВАЖЛИВО: обмін PKCE-коду має відбутись ДО getSession() у
+       checkEmailConfirmation() — інакше getSession() може встигнути
+       відпрацювати раніше, ніж сесія з'явиться з коду. */
+    await exchangePkceCodeIfPresent();
     await checkEmailConfirmation();
   }
 
