@@ -389,11 +389,6 @@
           </div>
         </div>
 
-        <!-- ДОДАНО: Email показується лише для читання — його зміна
-             вимагає окремого підтвердження через Supabase Auth, чого
-             ця форма не робить. Поле не входить у профіль-картку,
-             яку бачать інші користувачі, це суто інформаційне поле
-             для власника анкети. -->
         <label>Email
           <input type="email" id="pEmail" readonly disabled style="opacity:0.65;cursor:not-allowed;">
         </label>
@@ -459,6 +454,11 @@
         <button type="submit" class="btn btn-primary btn-full">Зберегти профіль</button>
         <p class="save-note" id="saveNote" hidden>Збережено ✓</p>
       </form>
+
+      <div class="profile-danger-zone">
+        <button type="button" class="btn btn-ghost btn-full" id="logoutBtn">Вийти з акаунту</button>
+        <button type="button" class="btn btn-ghost btn-full btn-danger" id="deleteProfileBtn">Видалити анкету назавжди</button>
+      </div>
     </section>
 
   </main>
