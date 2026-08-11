@@ -1484,6 +1484,67 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape" && !previewModalOverlay.hidden) previewModalOverlay.hidden = true;
 });
 
+/* ---------- ВИХІД / ВИДАЛЕННЯ АНКЕТИ ---------- */
+
+function clearLocalIdentityData() {
+  [LS.me, LS.swipes, LS.matches, LS.chats, "nalyvay_pending_registration"]
+    .forEach(k => localStorage.removeItem(k));
+}
+
+const logoutBtn = document.getElementById("logoutBtn");
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    if (!confirm("Вийти з акаунту на цьому пристрої?")) return;
+
+    if (supabaseClient) {
+      try { await supabaseClient.auth.signOut(); }
+      catch (err) { console.error("Supabase signOut error:", err); }
+    }
+
+    clearLocalIdentityData();
+    window.location.reload();
+  });
+}
+
+const deleteProfileBtn = document.getElementById("deleteProfileBtn");
+if (deleteProfileBtn) {
+  deleteProfileBtn.addEventListener("click", async () => {
+    const me = currentMe();
+
+    if (!me || !me.id) {
+      alert("Немає активної анкети для видалення.");
+      return;
+    }
+
+    const sure = confirm(
+      "Це видалить твою анкету назавжди — інші люди більше не побачать її в застосунку. " +
+      "Дію не можна скасувати. Продовжити?"
+    );
+    if (!sure) return;
+
+    if (supabaseClient) {
+      // видаляємо рядок анкети з public.profiles — саме він показується
+      // іншим людям у колоді/списку, тож видалення прибирає анкету з застосунку
+      const { error } = await supabaseClient
+        .from(PROFILE_TABLE)
+        .delete()
+        .eq("id", me.id);
+
+      if (error) {
+        console.error("Supabase delete profile error:", error);
+        alert("Не вдалося видалити анкету з бази: " + error.message + ". Спробуй ще раз.");
+        return;
+      }
+
+      try { await supabaseClient.auth.signOut(); }
+      catch (err) { console.error("Supabase signOut error:", err); }
+    }
+
+    clearLocalIdentityData();
+    window.location.reload();
+  });
+}
+
 /* ---------- геолокація ---------- */
 
 const myLocationBadge = document.getElementById("myLocationBadge");
