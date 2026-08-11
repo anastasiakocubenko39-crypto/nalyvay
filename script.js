@@ -899,10 +899,9 @@ async function fetchOwnProfileRow(userId) {
   if (!supabaseClient) return null;
 
   const { data: row, error } = await supabaseClient
-    .from(PROFILE_TABLE)
+   .from("profiles_public")
     .select("id,name,email,birth_date,gender,city,settlement_type,settlement_name,bio,photo_url,phone_verified,age_verified,is_active,type,language,drinks,food,favorite_place,hobbies,created_at")
-    .eq("id", userId)
-    .maybeSingle();
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error("Не вдалося отримати анкету з Supabase:", error);
