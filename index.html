@@ -344,9 +344,13 @@
         <p class="eyebrow">метчі</p>
         <h1 class="screen-title">Чати</h1>
       </div>
+      <div class="chats-tabs">
+        <button type="button" class="chats-tab active" data-chats-tab="active">Усі чати</button>
+        <button type="button" class="chats-tab" data-chats-tab="archived">Архів</button>
+      </div>
       <div id="chatListView">
         <div id="chatListItems"></div>
-        <p class="deck-empty" id="chatsEmpty" hidden>Поки що немає метчів.<br>Свайпни когось вправо 🍾</p>
+        <p class="chats-empty" id="chatsEmpty" hidden>Поки що немає метчів.<br>Свайпни когось вправо 🍾</p>
       </div>
       <div id="chatThreadView" hidden>
         <button id="backToChats" class="back-btn">← Усі чати</button>
