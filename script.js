@@ -1203,10 +1203,18 @@ function openThread(id) {
   chatThreadView.hidden = false;
   chatDot.hidden = true;
 
-  document.getElementById("threadHeader").innerHTML = `
-    <span style="font-size:22px;">${profile.avatar}</span>
-    <span>${escapeHtml(profile.name)}</span>
+  const threadHeader = document.getElementById("threadHeader");
+  threadHeader.innerHTML = `
+    <div class="thread-header-avatar">${profile.photo ? `<img src="${profile.photo}" alt="${escapeHtml(profile.name)}">` : profile.avatar}</div>
+    <div class="thread-header-meta">
+      <span class="thread-header-name">${escapeHtml(profile.name)}</span>
+      <span class="thread-header-hint">переглянути анкету →</span>
+    </div>
   `;
+  // onclick (а не addEventListener) — щоб при повторних відкриттях чату
+  // (той самий DOM-елемент, лише innerHTML міняється) не накопичувались
+  // старі обробники на попередніх співрозмовників
+  threadHeader.onclick = () => showProfileCardModal(profile, profile.name);
 
   chatThreadView.dataset.activeId = id;
   chatThreadView.dataset.isReal = isRealProfile(profile) ? "1" : "0";
@@ -1693,10 +1701,21 @@ document.getElementById("profileForm").addEventListener("submit", async e => {
   }
 });
 
-/* ---------- ПРЕВ'Ю АНКЕТИ ---------- */
+/* ---------- ПРЕВ'Ю АНКЕТИ (власної й співрозмовника з чату) ---------- */
 
 const previewModalOverlay = document.getElementById("previewModalOverlay");
+const previewModalTitle = document.getElementById("previewModalTitle");
 const previewCardWrap = document.getElementById("previewCardWrap");
+
+/* Спільна функція показу картки будь-якої анкети в модалці — використовується
+   і для "Прев'ю анкети" на своєму профілі, і для перегляду анкети
+   співрозмовника кліком на шапку чату. */
+function showProfileCardModal(profile, titleText) {
+  if (previewModalTitle) previewModalTitle.textContent = titleText || "Анкета";
+  previewCardWrap.innerHTML = "";
+  previewCardWrap.appendChild(buildCard(profile));
+  previewModalOverlay.hidden = false;
+}
 
 function buildGeoFromForm() {
   const settlementName = document.getElementById("pSettlementName").value.trim();
@@ -1728,14 +1747,10 @@ function renderPreviewCard() {
     verified: !!me.verified
   };
 
-  previewCardWrap.innerHTML = "";
-  previewCardWrap.appendChild(buildCard(previewProfile));
+  showProfileCardModal(previewProfile, "Так тебе бачать інші");
 }
 
-document.getElementById("previewBtn").addEventListener("click", () => {
-  renderPreviewCard();
-  previewModalOverlay.hidden = false;
-});
+document.getElementById("previewBtn").addEventListener("click", renderPreviewCard);
 document.getElementById("previewModalCloseBtn").addEventListener("click", () => previewModalOverlay.hidden = true);
 previewModalOverlay.addEventListener("click", e => {
   if (e.target === previewModalOverlay) previewModalOverlay.hidden = true;
