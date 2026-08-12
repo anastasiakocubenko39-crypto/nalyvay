@@ -1032,10 +1032,49 @@ function allMatchIds() {
   return [...matches, ...realMatches];
 }
 
+/* ---------- АРХІВ ЧАТІВ (локально, окремо для кожного акаунту на пристрої) ---------- */
+
+let chatsViewMode = "active"; // "active" | "archived"
+
+function archivedChatsKey() {
+  const me = currentMe();
+  return "nalyvay_archived_matches_" + (me && me.id ? me.id : "guest");
+}
+
+function getArchivedIds() {
+  return get(archivedChatsKey(), []);
+}
+
+function toggleArchive(id) {
+  const ids = getArchivedIds();
+  const idx = ids.indexOf(id);
+  if (idx === -1) ids.push(id); else ids.splice(idx, 1);
+  set(archivedChatsKey(), ids);
+  renderChatList();
+}
+
+document.querySelectorAll(".chats-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".chats-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    chatsViewMode = tab.dataset.chatsTab;
+    renderChatList();
+  });
+});
+
 function renderChatList() {
   chatListItems.innerHTML = "";
-  const ids = allMatchIds();
+
+  const archived = getArchivedIds();
+  const ids = allMatchIds().filter(id =>
+    chatsViewMode === "archived" ? archived.includes(id) : !archived.includes(id)
+  );
+
   chatsEmpty.hidden = ids.length > 0;
+  chatsEmpty.innerHTML = chatsViewMode === "archived"
+    ? "Архів порожній."
+    : "Поки що немає метчів.<br>Свайпни когось вправо 🍾";
+
   const demoChats = get(LS.chats, {});
 
   ids.forEach(id => {
@@ -1055,8 +1094,19 @@ function renderChatList() {
         <p class="chat-name">${escapeHtml(profile.name)}</p>
         <p class="chat-preview">${escapeHtml(previewText)}</p>
       </div>
+      <button type="button" class="chat-archive-btn" title="${chatsViewMode === "archived" ? "Повернути в чати" : "Архівувати"}">
+        ${chatsViewMode === "archived" ? "↩" : "🗄"}
+      </button>
     `;
+
+    // клік по всьому рядку відкриває переписку, ОКРІМ кліку по кнопці архіву —
+    // stopPropagation на кнопці не дає цьому кліку "провалитись" на row
+    row.querySelector(".chat-archive-btn").addEventListener("click", e => {
+      e.stopPropagation();
+      toggleArchive(id);
+    });
     row.addEventListener("click", () => openThread(id));
+
     chatListItems.appendChild(row);
   });
 }
