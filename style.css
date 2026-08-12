@@ -317,32 +317,46 @@ body{
   text-align:center; color:var(--text-dim); font-size:14px; line-height:1.6;
   padding:0 30px;
 }
+.deck-empty[hidden]{
+  /* ВАЖЛИВО: display:flex вище має вищу специфічність, ніж стандартне [hidden]{display:none}
+     з UA-стилів браузера, тому без цього правила блок лишався б видимим навіть
+     при hidden — саме через це текст "Це всі, хто зараз поруч" показувався
+     поверх реальної картки анкети */
+  display:none;
+}
 .deck-empty .btn{
   margin-top:16px;
 }
 
 /* фізичні кнопки Пропустити/Лайк — надійна альтернатива жесту перетягування,
    потрібна на пристроях/браузерах, де touch-drag працює нестабільно
-   (напр. вбудований браузер Telegram) */
+   (напр. вбудований браузер Telegram). Круглі, напівпрозорі, невеликі,
+   з легкою анімацією "левітування" над карткою. */
 .swipe-actions{
-  position:absolute; left:0; right:0; bottom:44px; z-index:6;
-  display:flex; justify-content:center; gap:26px;
+  position:absolute; left:0; right:0; bottom:16px; z-index:6;
+  display:flex; justify-content:center; align-items:center; gap:22px;
   pointer-events:none; /* сам контейнер не заважає drag-жесту картки під ним */
 }
 .swipe-action-btn{
   pointer-events:auto;
-  width:56px; height:56px; flex-shrink:0;
-  border:2px solid var(--line);
-  background:rgba(12,5,3,0.8); backdrop-filter:blur(6px);
-  color:var(--text); font-size:22px; cursor:pointer;
+  width:42px; height:42px; flex-shrink:0;
+  border-radius:50% !important; /* переважає глобальний скидання заокруглень нижче у файлі */
+  border:1px solid rgba(245,228,220,0.35);
+  background:rgba(5,2,1,0.35);
+  backdrop-filter:blur(8px);
+  color:var(--text); font-size:16px; cursor:pointer;
   display:flex; align-items:center; justify-content:center;
-  box-shadow:0 10px 24px -8px rgba(0,0,0,0.7);
-  transition:transform .12s ease, border-color .15s;
+  box-shadow:0 8px 18px -6px rgba(0,0,0,0.55);
+  transition:transform .15s ease, background .15s;
+  animation: swipeBtnFloat 5s ease-in-out infinite;
 }
-.swipe-action-btn:active{transform:scale(0.88);}
-.swipe-action-pass{color:var(--red); border-color:var(--red);}
-.swipe-action-pass:hover{box-shadow:0 0 14px var(--red-glow), 0 10px 24px -8px rgba(0,0,0,0.7);}
-.swipe-action-like{color:var(--green); border-color:var(--green); box-shadow:0 0 16px var(--green-glow), 0 10px 24px -8px rgba(0,0,0,0.7);}
+.swipe-action-btn:active{transform:scale(0.85);}
+.swipe-action-pass{color:#ffb3ab; border-color:rgba(200,30,30,0.55);}
+.swipe-action-like{color:#ffe3d2; border-color:rgba(224,178,162,0.6); animation-delay:-2.5s;}
+@keyframes swipeBtnFloat{
+  0%, 100%{ transform:translateY(0); }
+  50%{ transform:translateY(-6px); }
+}
 
 /* Картки "ливітують": плавно гойдаються вгору-вниз (translateY), а власна
    тінь під колодою окремо "дихає" (.deck::after нижче) — разом це створює
@@ -498,6 +512,25 @@ body{
    ЧАТИ (вкладка "Чати")
    ================================================================== */
 #chatListView{padding:6px 18px 20px; flex:1;}
+
+.chats-tabs{
+  display:flex; gap:8px; padding:0 18px 12px;
+}
+.chats-tab{
+  font-family:var(--font-body); font-size:12px; font-weight:700;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim);
+  padding:8px 16px; cursor:pointer; transition:all .15s;
+}
+.chats-tab:hover{border-color:var(--green); color:var(--text);}
+.chats-tab.active{background:var(--raspberry); color:#fbe9e4; border-color:var(--raspberry);}
+
+.chats-empty{
+  /* порожній стан списку чатів — ЗВИЧАЙНИЙ потік (НЕ absolute, на відміну від
+     .deck-empty), інакше цей блок перекриває рядки чатів і блокує кліки по них */
+  text-align:center; color:var(--text-dim); font-size:14px; line-height:1.6;
+  padding:40px 24px;
+}
+
 .chat-row{
   /* один рядок чату у списку */
   display:flex; align-items:center; gap:12px; padding:12px;
@@ -511,9 +544,19 @@ body{
   overflow:hidden;
 }
 .chat-avatar img{width:100%; height:100%; object-fit:cover;}
-.chat-meta{min-width:0;}
+.chat-meta{min-width:0; flex:1;}
 .chat-name{font-weight:700; font-size:14px; margin:0 0 2px;}
 .chat-preview{font-size:12px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;} /* останнє повідомлення, обрізане "..." */
+
+.chat-archive-btn{
+  flex-shrink:0;
+  width:34px; height:34px;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim);
+  font-size:15px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:border-color .15s, color .15s;
+}
+.chat-archive-btn:hover{border-color:var(--green); color:var(--green);}
 
 #chatThreadView{display:flex; flex-direction:column; flex:1; padding:0 18px 14px;}  /* екран переписки з однією людиною */
 .back-btn{
