@@ -130,7 +130,8 @@ function profileToSupabaseRow(profile) {
     drinks: profile.drinks || null,
     food: profile.food || null,
     favorite_place: profile.favoritePlace || null,
-    hobbies: profile.hobbies || null
+    hobbies: profile.hobbies || null,
+    photo_url: profile.photo || null
   };
 }
 
@@ -1472,6 +1473,13 @@ function initMap() {
   });
 }
 
+/* Високоточна геолокація: enableHighAccuracy вмикає GPS-чип пристрою
+   (замість дешевшого, але менш точного визначення по вишках/Wi-Fi),
+   maximumAge:0 забороняє браузеру віддати старий закешований результат */
+const HIGH_ACCURACY_GEO_OPTIONS = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 };
+
+let userLocationAccuracyCircle = null;
+
 /* Показує позначку "Ви тут" на мапі й центрує на ній вид. Викликається
    при відкритті мапи, і повторно з myLocationBadge (кнопка в хедері). */
 function showMyLocationOnMap(recenter) {
@@ -1479,6 +1487,7 @@ function showMyLocationOnMap(recenter) {
 
   navigator.geolocation.getCurrentPosition(pos => {
     const latlng = [pos.coords.latitude, pos.coords.longitude];
+    const accuracy = Math.round(pos.coords.accuracy || 0);
 
     if (userLocationMarker) {
       userLocationMarker.setLatLng(latlng);
@@ -1490,11 +1499,19 @@ function showMyLocationOnMap(recenter) {
           iconSize: [18, 18], iconAnchor: [9, 9]
         }),
         zIndexOffset: 1000
-      }).addTo(map).bindPopup("Ви тут");
+      }).addTo(map);
     }
+    userLocationMarker.bindPopup(`Ви тут (± ${accuracy} м)`);
+
+    // коло похибки — наочно показує, наскільки точне визначення:
+    // маленьке коло (GPS, десятки метрів) чи велике (по Wi-Fi/вишках, сотні метрів-кілометри)
+    if (userLocationAccuracyCircle) map.removeLayer(userLocationAccuracyCircle);
+    userLocationAccuracyCircle = L.circle(latlng, {
+      radius: accuracy, color: "#e0b2a2", weight: 1, fillColor: "#e0b2a2", fillOpacity: 0.08
+    }).addTo(map);
 
     if (recenter !== false) map.setView(latlng, 14);
-  }, () => {});
+  }, () => {}, HIGH_ACCURACY_GEO_OPTIONS);
 }
 
 function neonIcon(category) {
@@ -1830,15 +1847,16 @@ myLocationBadge.addEventListener("click", () => {
   }
   myLocationBadge.textContent = "📍 визначаємо…";
   navigator.geolocation.getCurrentPosition(pos => {
-    const lat = pos.coords.latitude.toFixed(3);
-    const lng = pos.coords.longitude.toFixed(3);
-    myLocationBadge.textContent = `📍 ${lat}, ${lng}`;
+    const lat = pos.coords.latitude.toFixed(5);
+    const lng = pos.coords.longitude.toFixed(5);
+    const accuracy = Math.round(pos.coords.accuracy || 0);
+    myLocationBadge.textContent = `📍 ${lat}, ${lng} (±${accuracy}м)`;
     myLocationBadge.classList.add("located");
 
     if (map) showMyLocationOnMap();
   }, () => {
     myLocationBadge.textContent = "📍 доступ не надано";
-  });
+  }, HIGH_ACCURACY_GEO_OPTIONS);
 });
 
 /* ===================== СТАРТ ===================== */
