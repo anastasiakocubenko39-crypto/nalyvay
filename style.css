@@ -330,6 +330,12 @@ body{
   display:flex; justify-content:center; align-items:center; gap:22px;
   pointer-events:none; /* сам контейнер не заважає drag-жесту картки під ним */
 }
+.swipe-actions[hidden]{
+  /* так само, як і .deck-empty[hidden] вище — власна вища специфічність display:flex
+     переважала б стандартний UA-стиль [hidden]{display:none} без цього правила,
+     і кнопки лайк/пропустити лишались би видимими навіть коли колода порожня */
+  display:none;
+}
 .swipe-action-btn{
   pointer-events:auto;
   width:42px; height:42px; flex-shrink:0;
@@ -556,6 +562,11 @@ body{
   transition:border-color .15s, transform .15s;
 }
 .chat-row:hover{border-color:var(--raspberry); transform:translateY(-2px);}
+.chat-row-unread{
+  /* рядок чату з непрочитаним повідомленням — трохи виділяємо рамкою */
+  border-color:var(--green);
+  box-shadow:0 0 0 1px var(--green-glow);
+}
 .chat-avatar{
   width:44px; height:44px; background:var(--panel-2);
   display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0;
@@ -563,7 +574,12 @@ body{
 }
 .chat-avatar img{width:100%; height:100%; object-fit:cover;}
 .chat-meta{min-width:0; flex:1;}
-.chat-name{font-weight:700; font-size:14px; margin:0 0 2px;}
+.chat-name{font-weight:700; font-size:14px; margin:0 0 2px; display:flex; align-items:center; gap:6px;}
+.chat-unread-dot{
+  /* маленька червона крапка біля імені у списку чатів — є непрочитане повідомлення */
+  display:inline-block; width:8px; height:8px; border-radius:50% !important;
+  background:var(--raspberry); box-shadow:0 0 6px var(--raspberry-glow); flex-shrink:0;
+}
 .chat-preview{font-size:12px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;} /* останнє повідомлення, обрізане "..." */
 
 .chat-archive-btn{
@@ -714,7 +730,7 @@ body{
 }
 .nav-ico-main{font-size:26px; transform:rotate(15deg); display:inline-block;}   /* пляшка трохи нахилена */
 .nav-dot{
-  /* червона крапка-сповіщення на вкладці "Чати" при новому метчі */
+  /* червона крапка-сповіщення на вкладці "Чати" при новому непрочитаному повідомленні */
   position:absolute; top:2px; right:2px; width:8px; height:8px;
   background:var(--raspberry); box-shadow:0 0 6px var(--raspberry-glow); border-radius:50%;
 }
