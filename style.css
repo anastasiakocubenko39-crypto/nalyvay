@@ -482,6 +482,17 @@ body{
   }
 }
 
+.places-category-tabs{
+  display:flex; gap:8px; padding:0 18px 12px; flex-wrap:wrap;
+}
+.places-category-tab{
+  font-family:var(--font-body); font-size:12px; font-weight:700;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim);
+  padding:8px 14px; cursor:pointer; transition:all .15s;
+}
+.places-category-tab:hover{border-color:var(--green); color:var(--text);}
+.places-category-tab.active{background:var(--raspberry); color:#fbe9e4; border-color:var(--raspberry);}
+
 .places-list{
   padding:0 18px 20px;
 }
@@ -490,7 +501,7 @@ body{
 }
 .place-item{
   /* один рядок у списку закладів */
-  display:flex; justify-content:space-between; align-items:center; gap:10px;
+  display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
   padding:12px 14px; background:var(--panel); border:1px solid var(--line);
   margin-bottom:8px; cursor:pointer; transition:border-color .15s, transform .15s, box-shadow .2s;
 }
@@ -504,6 +515,20 @@ body{
 .places-empty{color:var(--text-dim); font-size:13px; padding:10px 4px;}
 .leaflet-popup-content-wrapper{background:var(--card); color:var(--text);}    /* стилізація спливаючих підказок Leaflet під тему */
 .leaflet-popup-tip{background:var(--card);}
+
+/* пульсуюча позначка "Ви тут" на мапі */
+.my-location-dot{
+  width:16px; height:16px; border-radius:50% !important;
+  background:var(--green);
+  box-shadow:0 0 0 0 var(--green-glow);
+  border:2px solid #fff;
+  animation: myLocationPulse 2s ease-out infinite;
+}
+@keyframes myLocationPulse{
+  0%{ box-shadow:0 0 0 0 rgba(224,178,162,0.7); }
+  70%{ box-shadow:0 0 0 14px rgba(224,178,162,0); }
+  100%{ box-shadow:0 0 0 0 rgba(224,178,162,0); }
+}
 
 .place-meta-line{font-size:12px; color:var(--text-dim); margin:0 0 6px;}      /* адреса/години в модалці закладу */
 .place-meta-hours{color:var(--green); font-weight:600;}
