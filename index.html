@@ -1,4 +1,9 @@
 <!DOCTYPE html>
+<!--
+  НАЛИВАЙ — розмітка застосунку (index.html)
+  Коментарі українською стоять перед кожним значущим блоком і пояснюють,
+  за що він відповідає.
+-->
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
@@ -326,6 +331,13 @@
         <h1 class="screen-title">Де наливають</h1>
         <p class="screen-sub">Заклади по Черкасах, області та по всій Україні. Клікни на мапу, щоб додати свій і лишити відгук.</p>
       </div>
+      <div class="places-category-tabs">
+        <button type="button" class="places-category-tab active" data-category="all">Усі</button>
+        <button type="button" class="places-category-tab" data-category="bar">Бари</button>
+        <button type="button" class="places-category-tab" data-category="cafe">Кафе</button>
+        <button type="button" class="places-category-tab" data-category="restaurant">Ресторани</button>
+        <button type="button" class="places-category-tab" data-category="beach">Пляжі</button>
+      </div>
       <div id="map"></div>
       <div class="places-list" id="placesList">
         <h3>Заклади поруч</h3>
@@ -503,6 +515,7 @@
     <button type="button" class="modal-close" id="placeModalCloseBtn">×</button>
     <p class="eyebrow" id="placeModalEyebrow">заклад</p>
     <h2 id="placeModalTitle">Назва закладу</h2>
+    <div id="placeModalMeta" hidden></div>
     <div id="placeNewFields">
       <label>Назва закладу
         <input type="text" id="newPlaceName" placeholder="Бар «Хвиля»">
