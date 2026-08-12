@@ -608,6 +608,7 @@ async function handleSessionInner(session) {
       if (typeof refreshRemoteProfiles === "function") refreshRemoteProfiles();
       if (typeof refreshRealMatches === "function") refreshRealMatches();
       if (typeof subscribeToIncomingSwipes === "function") subscribeToIncomingSwipes();
+      if (typeof subscribeToIncomingMessagesGlobal === "function") subscribeToIncomingMessagesGlobal();
 
       return;
     }
@@ -670,6 +671,8 @@ async function initAuthAndProfiles() {
   await refreshRemoteProfiles();
   await refreshRealMatches();
   subscribeToIncomingSwipes();
+  subscribeToIncomingMessagesGlobal();
+  await refreshUnreadRealMessages();
 }
 
 initAuthAndProfiles();
@@ -777,6 +780,8 @@ document.getElementById("filterResetBtn").addEventListener("click", () => {
 const deckEl = document.getElementById("deck");
 const deckEmpty = document.getElementById("deckEmpty");
 const deckEmptyText = document.getElementById("deckEmptyText");
+const swipeActionsEl = document.querySelector(".swipe-actions");
+const swipeHintEl = document.getElementById("swipeHint");
 
 if (typeof SEED_PROFILES === "undefined") {
   console.error("SEED_PROFILES не знайдено. Переконайся, що seed-data.js підключений у index.html ПЕРЕД script.js.");
@@ -807,10 +812,17 @@ function rebuildQueue() {
 
 function renderDeck() {
   deckEl.innerHTML = "";
-  deckEmpty.hidden = queue.length > 0;
-  showPassedBtn.hidden = !(queue.length === 0 && hasPassedProfiles() && !hasActiveFilters());
+  const isEmpty = queue.length === 0;
+  deckEmpty.hidden = !isEmpty;
+  showPassedBtn.hidden = !(isEmpty && hasPassedProfiles() && !hasActiveFilters());
 
-  if (queue.length === 0 && hasActiveFilters()) {
+  // коли колода порожня — ховаємо кнопки "лайк/пропустити" й підказку знизу:
+  // раніше вони лишались видимими навіть без жодної картки і своїм z-index
+  // перекривали кнопку "Показати пропущених ще раз", тому вона була не видна
+  if (swipeActionsEl) swipeActionsEl.hidden = isEmpty;
+  if (swipeHintEl) swipeHintEl.hidden = isEmpty;
+
+  if (isEmpty && hasActiveFilters()) {
     deckEmptyText.innerHTML = "Нікого не знайдено за цими фільтрами 🔍<br>Спробуй змінити критерії пошуку.";
   } else {
     deckEmptyText.innerHTML = "Це всі, хто зараз поруч 🍻<br>Заглянь пізніше — з'являться нові.";
@@ -1022,7 +1034,9 @@ function showMatchModal(profile) {
   lastMatchedId = profile.id;
   document.getElementById("matchName").textContent = profile.name;
   matchOverlay.hidden = false;
-  chatDot.hidden = false;
+  // ЧЕРВОНУ крапку на вкладці "Чати" більше НЕ вмикаємо тут напряму:
+  // сам факт метчу — це ще не повідомлення. Крапка показується лише коли
+  // з'являється реальне непрочитане повідомлення (див. updateChatDot нижче)
 }
 
 function seedDemoChatIfEmpty(profile) {
@@ -1030,6 +1044,8 @@ function seedDemoChatIfEmpty(profile) {
   if (!chats[profile.id]) {
     chats[profile.id] = [{ from: "them", text: `Привіт! Радий(-а) метчу 🍾 Ти теж любиш ${(profile.drinks || "").split(",")[0].toLowerCase()}?` }];
     set(LS.chats, chats);
+    markDemoUnread(profile.id);
+    updateChatDot();
   }
 }
 
@@ -1053,7 +1069,7 @@ async function loadRealMatches() {
 async function refreshRealMatches() {
   realMatches = await loadRealMatches();
   if (typeof renderChatList === "function") renderChatList();
-  chatDot.hidden = !(realMatches.length > 0 || matches.length > 0);
+  if (typeof refreshUnreadRealMessages === "function") await refreshUnreadRealMessages();
 }
 
 /* Realtime: коли хтось реальний лайкає мене — перевіряємо взаємність і,
@@ -1103,6 +1119,111 @@ document.getElementById("matchGoToChat").addEventListener("click", () => {
   screens.forEach(s => s.classList.toggle("active", s.id === "screen-chats"));
   openThread(lastMatchedId);
 });
+
+/* ===================== НЕПРОЧИТАНІ ПОВІДОМЛЕННЯ / ЧЕРВОНА КРАПКА =====================
+   Раніше червона крапка на вкладці "Чати" вмикалась просто від наявності метчу —
+   тобто вона світилась навіть якщо жодного повідомлення ще ніхто не написав.
+   Тепер крапка показується ЛИШЕ коли є реально непрочитане повідомлення:
+   - для реальних людей (Supabase): порівнюємо час останнього вхідного
+     повідомлення від кожного співрозмовника з часом, коли я востаннє
+     відкривав(-ла) чат із ним(нею) (nalyvay_last_seen_<мій id>);
+   - для демо-анкет (SEED_PROFILES): окремий локальний список "непрочитаних"
+     ідентифікаторів чатів (nalyvay_unread_demo_<мій id>). */
+
+function lastSeenKey() {
+  const me = currentMe();
+  return "nalyvay_last_seen_" + (me && me.id ? me.id : "guest");
+}
+function getLastSeenMap() { return get(lastSeenKey(), {}); }
+function setLastSeenNow(otherId) {
+  const map = getLastSeenMap();
+  map[otherId] = new Date().toISOString();
+  set(lastSeenKey(), map);
+}
+
+function unreadDemoChatsKey() {
+  const me = currentMe();
+  return "nalyvay_unread_demo_" + (me && me.id ? me.id : "guest");
+}
+function getUnreadDemoSet() { return new Set(get(unreadDemoChatsKey(), [])); }
+function markDemoUnread(id) {
+  const s = getUnreadDemoSet(); s.add(id);
+  set(unreadDemoChatsKey(), [...s]);
+}
+function markDemoRead(id) {
+  const s = getUnreadDemoSet(); s.delete(id);
+  set(unreadDemoChatsKey(), [...s]);
+}
+
+let unreadRealSenderIds = new Set();
+
+/* Одноразова перевірка при вході/оновленні сторінки: чи є повідомлення,
+   надіслані мені, час яких пізніший за мій "lastSeen" по цьому відправнику. */
+async function refreshUnreadRealMessages() {
+  unreadRealSenderIds = new Set();
+  if (!supabaseClient) { updateChatDot(); return; }
+  const me = currentMe();
+  if (!me || !me.id) { updateChatDot(); return; }
+
+  const { data, error } = await supabaseClient
+    .from("messages")
+    .select("sender_id,created_at")
+    .eq("receiver_id", me.id)
+    .order("created_at", { ascending: false });
+
+  if (error) { console.error("Supabase unread messages error:", error); updateChatDot(); return; }
+
+  const lastSeen = getLastSeenMap();
+  const seenSenders = new Set();
+  (data || []).forEach(row => {
+    if (seenSenders.has(row.sender_id)) return; // нас цікавить лише останнє повідомлення від кожного
+    seenSenders.add(row.sender_id);
+    const seenAt = lastSeen[row.sender_id];
+    if (!seenAt || new Date(row.created_at) > new Date(seenAt)) {
+      unreadRealSenderIds.add(row.sender_id);
+    }
+  });
+  updateChatDot();
+}
+
+/* Глобальна realtime-підписка (працює незалежно від того, який чат зараз
+   відкритий) — щоб крапка запалювалась одразу, коли приходить нове
+   повідомлення, а не лише після перезавантаження сторінки. */
+let globalMessagesChannel = null;
+
+function subscribeToIncomingMessagesGlobal() {
+  if (!supabaseClient) return;
+  const me = currentMe();
+  if (!me || !me.id) return;
+
+  if (globalMessagesChannel) supabaseClient.removeChannel(globalMessagesChannel);
+
+  globalMessagesChannel = supabaseClient
+    .channel("messages-incoming-" + me.id)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${me.id}` },
+      payload => {
+        const row = payload.new;
+        const threadOpenWithSender = !chatThreadView.hidden && chatThreadView.dataset.activeId === row.sender_id;
+
+        if (threadOpenWithSender) {
+          // людина вже дивиться саме цей чат — повідомлення одразу "прочитане"
+          setLastSeenNow(row.sender_id);
+          unreadRealSenderIds.delete(row.sender_id);
+        } else {
+          unreadRealSenderIds.add(row.sender_id);
+        }
+
+        updateChatDot();
+        if (typeof renderChatList === "function" && chatListView && !chatListView.hidden) renderChatList();
+      })
+    .subscribe();
+}
+
+function updateChatDot() {
+  const hasUnreadReal = unreadRealSenderIds.size > 0;
+  const hasUnreadDemo = getUnreadDemoSet().size > 0;
+  chatDot.hidden = !(hasUnreadReal || hasUnreadDemo);
+}
 
 /* ===================== ЧАТИ ===================== */
 
@@ -1159,22 +1280,24 @@ function renderChatList() {
     : "Поки що немає метчів.<br>Свайпни когось вправо 🍾";
 
   const demoChats = get(LS.chats, {});
+  const unreadDemo = getUnreadDemoSet();
 
   ids.forEach(id => {
     const profile = findProfileById(id);
     if (!profile) return;
 
     const isReal = isRealProfile(profile);
+    const isUnread = isReal ? unreadRealSenderIds.has(id) : unreadDemo.has(id);
     const previewText = isReal
       ? "Натисни, щоб відкрити переписку"
       : ((demoChats[id] && demoChats[id][demoChats[id].length - 1]?.text) || "Кажи привіт!");
 
     const row = document.createElement("div");
-    row.className = "chat-row";
+    row.className = "chat-row" + (isUnread ? " chat-row-unread" : "");
     row.innerHTML = `
       <div class="chat-avatar">${profile.photo ? `<img src="${profile.photo}" alt="${escapeHtml(profile.name)}">` : profile.avatar}</div>
       <div class="chat-meta">
-        <p class="chat-name">${escapeHtml(profile.name)}</p>
+        <p class="chat-name">${escapeHtml(profile.name)}${isUnread ? ' <span class="chat-unread-dot" aria-label="непрочитане"></span>' : ''}</p>
         <p class="chat-preview">${escapeHtml(previewText)}</p>
       </div>
       <button type="button" class="chat-archive-btn" title="${chatsViewMode === "archived" ? "Повернути в чати" : "Архівувати"}">
@@ -1202,7 +1325,6 @@ function openThread(id) {
 
   chatListView.hidden = true;
   chatThreadView.hidden = false;
-  chatDot.hidden = true;
 
   const threadHeader = document.getElementById("threadHeader");
   threadHeader.innerHTML = `
@@ -1221,9 +1343,20 @@ function openThread(id) {
   chatThreadView.dataset.isReal = isRealProfile(profile) ? "1" : "0";
 
   if (isRealProfile(profile)) {
+    // відкрили чат із реальною людиною — позначаємо його прочитаним і одразу
+    // ховаємо крапку, якщо інших непрочитаних більше немає
+    setLastSeenNow(id);
+    unreadRealSenderIds.delete(id);
+    updateChatDot();
+    renderChatList();
+
     loadRealMessages(id);
     subscribeToMessages(id);
   } else {
+    markDemoRead(id);
+    updateChatDot();
+    renderChatList();
+
     if (messagesRealtimeChannel && supabaseClient) {
       supabaseClient.removeChannel(messagesRealtimeChannel);
       messagesRealtimeChannel = null;
@@ -1291,6 +1424,11 @@ function subscribeToMessages(otherId) {
         div.textContent = row.text;
         wrap.appendChild(div);
         wrap.scrollTop = wrap.scrollHeight;
+
+        // чат зараз відкритий і видимий — одразу позначаємо прочитаним
+        setLastSeenNow(otherId);
+        unreadRealSenderIds.delete(otherId);
+        updateChatDot();
       })
     .subscribe();
 }
@@ -1862,4 +2000,4 @@ myLocationBadge.addEventListener("click", () => {
 /* ===================== СТАРТ ===================== */
 
 rebuildQueue();
-if (matches.length > 0) chatDot.hidden = false;
+updateChatDot();
