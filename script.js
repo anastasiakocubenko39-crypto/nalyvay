@@ -258,6 +258,87 @@ function escapeHtml(str) {
 }
 
 
+/* ===================== ВЕРИФІКАЦІЯ ПРОФІЛЮ ===================== */
+/* Раніше в HTML була вся розмітка (verifyBox/verifyQuestion/verifyCheckBtn),
+   але жодного JS-обробника на неї не було навішено — кнопка "Перевірити"
+   візуально існувала, але клік нічого не робив. Додаю логіку повністю. */
+
+const verifyBadgeText = document.getElementById("verifyBadgeText");
+const verifyChallenge = document.getElementById("verifyChallenge");
+const verifyQuestion = document.getElementById("verifyQuestion");
+const verifyAnswerInput = document.getElementById("verifyAnswer");
+const verifyCheckBtn = document.getElementById("verifyCheckBtn");
+const verifyMsg = document.getElementById("verifyMsg");
+
+let verifyExpectedAnswer = null;
+
+function generateVerifyQuestion() {
+  const a = Math.floor(Math.random() * 8) + 1;
+  const b = Math.floor(Math.random() * 8) + 1;
+  verifyExpectedAnswer = a + b;
+  if (verifyQuestion) verifyQuestion.textContent = `${a} + ${b} = ?`;
+  if (verifyAnswerInput) verifyAnswerInput.value = "";
+  if (verifyMsg) verifyMsg.hidden = true;
+}
+
+function renderVerifyState() {
+  const me = currentMe();
+  const isVerified = !!(me && me.verified);
+
+  if (verifyBadgeText) {
+    verifyBadgeText.textContent = isVerified ? "Профіль верифікований ✓" : "Профіль не верифікований";
+    verifyBadgeText.classList.toggle("verified", isVerified);
+  }
+  if (verifyChallenge) verifyChallenge.hidden = isVerified;
+
+  if (!isVerified) generateVerifyQuestion();
+}
+
+if (verifyCheckBtn) {
+  verifyCheckBtn.addEventListener("click", async () => {
+    const raw = (verifyAnswerInput && verifyAnswerInput.value || "").trim();
+    const answer = Number(raw);
+
+    if (raw === "" || Number.isNaN(answer)) {
+      verifyMsg.textContent = "Введи число.";
+      verifyMsg.className = "verify-msg verify-msg-err";
+      verifyMsg.hidden = false;
+      return;
+    }
+
+    if (answer !== verifyExpectedAnswer) {
+      verifyMsg.textContent = "Неправильно, спробуй ще раз.";
+      verifyMsg.className = "verify-msg verify-msg-err";
+      verifyMsg.hidden = false;
+      generateVerifyQuestion();
+      return;
+    }
+
+    verifyMsg.textContent = "Правильно ✓";
+    verifyMsg.className = "verify-msg verify-msg-ok";
+    verifyMsg.hidden = false;
+
+    const me = currentMe() || {};
+    const updated = { ...me, verified: true };
+    set(LS.me, updated);
+    renderVerifyState();
+
+    // позначаємо анкету верифікованою і в Supabase (age_verified — поле,
+    // яке вже є в таблиці profiles саме для цього), щоб галочка "✓"
+    // з'являлась і в інших людей у колоді, а не лише в тебе локально
+    if (updated.id && supabaseClient) {
+      const { error } = await supabaseClient
+        .from(PROFILE_TABLE)
+        .update({ age_verified: true })
+        .eq("id", updated.id);
+
+      if (error) console.error("Supabase update age_verified error:", error);
+      else if (typeof refreshRemoteProfiles === "function") refreshRemoteProfiles();
+    }
+  });
+}
+
+
 /* ===================== ФОТО ===================== */
 
 function readPhotoFile(inputEl) {
@@ -335,6 +416,7 @@ function fillProfileFormFromMe() {
   if (onlineToggle) onlineToggle.checked = me.online !== false;
 
   renderAvatarPreview(me);
+  renderVerifyState();
 }
 
 
@@ -1273,20 +1355,94 @@ document.getElementById("threadForm").addEventListener("submit", async e => {
 /* ===================== КАРТА ЗАКЛАДІВ ===================== */
 
 let map;
-let places = get(LS.places, null) || seedPlaces();
+let userLocationMarker = null;
+
+/* Реальні заклади Черкас (назва, категорія, адреса, координати, години
+   роботи) — стартовий список. Люди можуть додавати свої заклади кліком
+   на мапу (як і раніше), ці додані заклади зберігаються в localStorage
+   разом із цим стартовим списком. */
+const REAL_PLACES_SEED = [
+  // --- бари ---
+  { id: "escobar-club", category: "bar", name: "Escobar club", address: "вул. Остафія Дашкевича, 19", lat: 49.4449748, lng: 32.0650723, hours: "10:00–01:00 (Пт–Сб цілодобово)" },
+  { id: "tooman-lounge", category: "bar", name: "Tooman Lounge Bar", address: "вул. Хрещатик, 200", lat: 49.4421994, lng: 32.065235, hours: "10:00–00:00" },
+  { id: "oblako-bar", category: "bar", name: "Oblako", address: "б-р Шевченка, 150", lat: 49.4498684, lng: 32.0478299, hours: "13:00–23:00" },
+  { id: "roof-bar", category: "bar", name: "Roof Bar", address: "б-р Шевченка, 205", lat: 49.4418574, lng: 32.0647867, hours: "14:00–00:00 (Сб–Нд з 10:00)" },
+  { id: "bierstube", category: "bar", name: "Bierstube", address: "вул. Хрещатик, 225", lat: 49.4455271, lng: 32.0628543, hours: "09:00–23:00" },
+  { id: "oskar-pub", category: "bar", name: "Oskar (пивний паб)", address: "б-р Шевченка, 150", lat: 49.4497816, lng: 32.047608, hours: "11:00–22:00" },
+  { id: "monika-2049", category: "bar", name: "Lounge bar MONIKA.2049", address: "вул. Смілянська, 2", lat: 49.4444531, lng: 32.0681076, hours: "09:30–23:00" },
+
+  // --- кафе ---
+  { id: "morris-space", category: "cafe", name: "Morris Space", address: "вул. Симоненка, 1", lat: 49.4419094, lng: 32.0624808, hours: "09:00–21:00" },
+  { id: "the-room", category: "cafe", name: "The Room", address: "вул. Хрещатик, 188", lat: 49.4461896, lng: 32.06054, hours: "08:00–22:00" },
+  { id: "caffeine", category: "cafe", name: "Caffeine", address: "б-р Шевченка, 83", lat: 49.4523140, lng: 32.045766, hours: "08:30–21:00" },
+  { id: "varenychna", category: "cafe", name: "Вареничная", address: "вул. Небесної Сотні, 10", lat: 49.4404105, lng: 32.0676891, hours: "11:00–21:00" },
+  { id: "bohema-cafe", category: "cafe", name: "Кафе BOHEMA на Хрещатику", address: "вул. Хрещатик, 200", lat: 49.4430385, lng: 32.0655079, hours: "08:00–23:00" },
+  { id: "bochka", category: "cafe", name: "Бочка", address: "вул. Князя Ольгерда", lat: 49.4633856, lng: 32.036464, hours: "цілодобово" },
+
+  // --- ресторани ---
+  { id: "restaurant-1909", category: "restaurant", name: "Restaurant 1909", address: "вул. Остафія Дашкевича, 20", lat: 49.4451829, lng: 32.063071, hours: "08:00–22:00" },
+  { id: "servant", category: "restaurant", name: "Servant", address: "вул. Гоголя, 242", lat: 49.4412227, lng: 32.0588857, hours: "11:00–22:30" },
+  { id: "cosa-nostra", category: "restaurant", name: "Cosa Nostra", address: "б-р Шевченка, 108", lat: 49.4528714, lng: 32.0431065, hours: "10:30–23:00" },
+  { id: "faro-del-porto", category: "restaurant", name: "Faro del Porto", address: "вул. Козацька, 2", lat: 49.4382345, lng: 32.1005106, hours: "11:00–23:00" },
+  { id: "chacha", category: "restaurant", name: "Chacha (грузинський ресторан)", address: "вул. Хрещатик, 200", lat: 49.4428071, lng: 32.0654327, hours: "11:00–22:00" },
+  { id: "forest", category: "restaurant", name: "Forest", address: "вул. П. Куліша, 25", lat: 49.4590028, lng: 32.0337399, hours: "12:00–22:00" },
+  { id: "escobar-restaurant", category: "restaurant", name: "Escobar (ресторан)", address: "вул. Остафія Дашкевича", lat: 49.4450131, lng: 32.0650319, hours: "10:00–04:00" },
+
+  // --- пляжі ---
+  { id: "pushkinskyi-beach", category: "beach", name: "Пушкінський пляж", address: "Пушкінський пляж", lat: 49.4566408, lng: 32.0572392, hours: "без обмежень" },
+  { id: "zhyvchyk", category: "beach", name: "Живчик (пляж)", address: "вул. Героїв Дніпра", lat: 49.4397226, lng: 32.0839388, hours: "06:00–20:00" },
+  { id: "sosnovyi-bir-beach", category: "beach", name: "Пляж «Сосновий Бір»", address: "вул. Князя Ольгерда, 3", lat: 49.4645539, lng: 32.0349144, hours: "без обмежень" },
+  { id: "dakhnivskyi-beach", category: "beach", name: "Дахнівський пляж", address: "вул. Сержанта Волкова, 187", lat: 49.4831326, lng: 31.9989821, hours: "06:00–20:00" }
+];
+
+function seedPlaces() {
+  const seed = REAL_PLACES_SEED.map(p => ({ ...p, reviews: [] }));
+  set(LS.places, seed);
+  return seed;
+}
+
+function loadOrSeedPlaces() {
+  const existing = get(LS.places, null);
+
+  if (!existing || !Array.isArray(existing) || existing.length === 0) {
+    return seedPlaces();
+  }
+
+  // старий демо-список ("Бар «Хвиля»", "Craft Room") не мав поля category —
+  // якщо все, що є в localStorage, без category, це старий кеш, замінюємо
+  // його реальним списком закладів
+  const isOldDemoOnly = existing.every(p => !p.category);
+  if (isOldDemoOnly) {
+    return seedPlaces();
+  }
+
+  return existing;
+}
+
+let places = loadOrSeedPlaces();
 let markersById = {};
 let activePlaceId = null;
 let pendingNewCoords = null;
+let placesCategoryFilter = "all"; // "all" | "bar" | "cafe" | "restaurant" | "beach"
 
-function seedPlaces() {
-  const seed = [
-    { id: cryptoId(), name: "Бар «Хвиля»", lat: 49.4444, lng: 32.0598,
-      reviews: [{ author: "Оля", rating: 5, text: "Найкращий джин-тонік у місті." }] },
-    { id: cryptoId(), name: "Craft Room", lat: 49.4285, lng: 32.0645,
-      reviews: [{ author: "Максим", rating: 4, text: "Великий вибір крафтового пива." }] }
-  ];
-  set(LS.places, seed);
-  return seed;
+function categoryIcon(category) {
+  switch (category) {
+    case "bar": return "🍸";
+    case "cafe": return "☕";
+    case "restaurant": return "🍽";
+    case "beach": return "🏖";
+    default: return "📍";
+  }
+}
+
+function categoryLabel(category) {
+  switch (category) {
+    case "bar": return "бар";
+    case "cafe": return "кафе";
+    case "restaurant": return "ресторан";
+    case "beach": return "пляж";
+    default: return "заклад";
+  }
 }
 
 function initMap() {
@@ -1296,11 +1452,7 @@ function initMap() {
     subdomains: "abcd", maxZoom: 19
   }).addTo(map);
 
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(pos => {
-      map.setView([pos.coords.latitude, pos.coords.longitude], 14);
-    }, () => {});
-  }
+  showMyLocationOnMap();
 
   places.forEach(addMarkerForPlace);
   renderPlacesList();
@@ -1312,35 +1464,84 @@ function initMap() {
   });
 }
 
-function neonIcon() {
+/* Показує позначку "Ви тут" на мапі й центрує на ній вид. Викликається
+   при відкритті мапи, і повторно з myLocationBadge (кнопка в хедері). */
+function showMyLocationOnMap(recenter) {
+  if (!navigator.geolocation || !map) return;
+
+  navigator.geolocation.getCurrentPosition(pos => {
+    const latlng = [pos.coords.latitude, pos.coords.longitude];
+
+    if (userLocationMarker) {
+      userLocationMarker.setLatLng(latlng);
+    } else {
+      userLocationMarker = L.marker(latlng, {
+        icon: L.divIcon({
+          className: "",
+          html: `<div class="my-location-dot"></div>`,
+          iconSize: [18, 18], iconAnchor: [9, 9]
+        }),
+        zIndexOffset: 1000
+      }).addTo(map).bindPopup("Ви тут");
+    }
+
+    if (recenter !== false) map.setView(latlng, 14);
+  }, () => {});
+}
+
+function neonIcon(category) {
   return L.divIcon({
     className: "",
-    html: `<div style="font-size:26px; filter:drop-shadow(0 0 6px rgba(45,255,160,0.8));">🍸</div>`,
+    html: `<div style="font-size:26px; filter:drop-shadow(0 0 6px rgba(45,255,160,0.8));">${categoryIcon(category)}</div>`,
     iconSize: [26, 26], iconAnchor: [13, 22]
   });
 }
 
 function addMarkerForPlace(place) {
-  const marker = L.marker([place.lat, place.lng], { icon: neonIcon() }).addTo(map);
+  const marker = L.marker([place.lat, place.lng], { icon: neonIcon(place.category) }).addTo(map);
   marker.on("click", () => {
     activePlaceId = place.id; pendingNewCoords = null; openPlaceModal();
   });
   markersById[place.id] = marker;
 }
 
+document.querySelectorAll(".places-category-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".places-category-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    placesCategoryFilter = tab.dataset.category;
+    renderPlacesList();
+
+    // на мапі теж лишаємо тільки заклади обраної категорії
+    Object.values(markersById).forEach(m => map.removeLayer(m));
+    markersById = {};
+    places
+      .filter(p => placesCategoryFilter === "all" || p.category === placesCategoryFilter)
+      .forEach(addMarkerForPlace);
+  });
+});
+
 function renderPlacesList() {
   const wrap = document.getElementById("placesListItems");
   wrap.innerHTML = "";
-  if (places.length === 0) {
-    wrap.innerHTML = `<p class="places-empty">Ще немає закладів. Клікни на мапу, щоб додати перший.</p>`;
+
+  const filtered = places.filter(p => placesCategoryFilter === "all" || p.category === placesCategoryFilter);
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = `<p class="places-empty">Тут поки нічого немає. Клікни на мапу, щоб додати заклад.</p>`;
     return;
   }
-  places.forEach(p => {
+
+  filtered.forEach(p => {
     const item = document.createElement("div");
     item.className = "place-item";
     item.innerHTML = `
-      <span class="place-item-name">${escapeHtml(p.name)}</span>
-      <span class="place-item-meta">${p.reviews.length} відгук(ів)</span>
+      <div class="place-item-main">
+        <span class="place-item-name">${categoryIcon(p.category)} ${escapeHtml(p.name)}</span>
+        <span class="place-item-address">${escapeHtml(p.address || "")}</span>
+        ${p.hours ? `<span class="place-item-hours">🕒 ${escapeHtml(p.hours)}</span>` : ""}
+      </div>
+      <span class="place-item-meta">${(p.reviews || []).length} відгук(ів)</span>
     `;
     item.addEventListener("click", () => {
       map.setView([p.lat, p.lng], 16);
@@ -1355,6 +1556,7 @@ function renderPlacesList() {
 const placeModalOverlay = document.getElementById("placeModalOverlay");
 const placeModalTitle = document.getElementById("placeModalTitle");
 const placeModalEyebrow = document.getElementById("placeModalEyebrow");
+const placeModalMeta = document.getElementById("placeModalMeta");
 const placeNewFields = document.getElementById("placeNewFields");
 const newPlaceNameInput = document.getElementById("newPlaceName");
 const reviewsList = document.getElementById("reviewsList");
@@ -1363,13 +1565,20 @@ function openPlaceModal() {
   placeModalOverlay.hidden = false;
   if (activePlaceId) {
     const place = places.find(p => p.id === activePlaceId);
-    placeModalEyebrow.textContent = "заклад";
+    placeModalEyebrow.textContent = categoryLabel(place.category);
     placeModalTitle.textContent = place.name;
+    placeModalMeta.hidden = false;
+    placeModalMeta.innerHTML = `
+      ${place.address ? `<p class="place-meta-line">📍 ${escapeHtml(place.address)}</p>` : ""}
+      ${place.hours ? `<p class="place-meta-line place-meta-hours">🕒 ${escapeHtml(place.hours)}</p>` : ""}
+    `;
     placeNewFields.hidden = true;
     renderReviews(place);
   } else {
     placeModalEyebrow.textContent = "новий заклад";
     placeModalTitle.textContent = "Додай назву та перший відгук";
+    placeModalMeta.hidden = true;
+    placeModalMeta.innerHTML = "";
     placeNewFields.hidden = false;
     newPlaceNameInput.value = "";
     reviewsList.innerHTML = `<p class="no-reviews">Тут з'являться відгуки після першого запису.</p>`;
@@ -1387,6 +1596,7 @@ placeModalOverlay.addEventListener("click", e => {
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && !placeModalOverlay.hidden) closePlaceModal();
 });
+
 
 function renderReviews(place) {
   if (place.reviews.length === 0) {
@@ -1609,6 +1819,8 @@ myLocationBadge.addEventListener("click", () => {
     const lng = pos.coords.longitude.toFixed(3);
     myLocationBadge.textContent = `📍 ${lat}, ${lng}`;
     myLocationBadge.classList.add("located");
+
+    if (map) showMyLocationOnMap();
   }, () => {
     myLocationBadge.textContent = "📍 доступ не надано";
   });
