@@ -7,73 +7,35 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0A0605">
+<meta name="description" content="НАЛИВАЙ — знайомства для тих, хто хоче випити не наодинці. Свайпи, метчі, чати і карта закладів.">
+<link rel="icon" href="mark.svg" type="image/svg+xml">
 <title>НАЛИВАЙ — знайомства для тих, хто хоче випити не наодинці</title>
 
 <!-- підключення шрифтів Google Fonts: Unbounded — для заголовків, Manrope — для основного тексту -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- бібліотека Leaflet — інтерактивна карта закладів на вкладці "Заклади" -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <!-- ===================== ФОНОВИЙ ШАР НА ВЕСЬ ЕКРАН ===================== -->
-<div id="bgStage" aria-hidden="true">
-  <div class="bg-stripes"></div>
-  <div class="bg-emblem"></div>
-  <div class="bg-emblem-img"></div>
+<div id="bgStage" aria-hidden="true"></div>
 
-  <span class="ember"></span>
-  <span class="ember"></span>
-  <span class="ember"></span>
-  <span class="ember"></span>
-  <span class="ember"></span>
-  <span class="ember"></span>
+<!-- ===================== ІНТРО (лого на секунду) ===================== -->
+<div class="intro-overlay" id="introOverlay" aria-hidden="true">
+  <div class="intro-logo"><img src="mark.svg" alt=""><span class="logo-word">налив<b>ай</b></span></div>
 </div>
 
 
-<!-- ===================== ІНТРО-ВІДЕО ===================== -->
-<div class="intro-overlay" id="introOverlay">
-  <video id="introVideo" autoplay muted playsinline preload="auto">
-    <source src="intro.mp4" type="video/mp4">
-  </video>
-
-  <div class="intro-logo-fallback" id="introLogoFallback" hidden>
-    <img
-      src="logo.png"
-      alt="НАЛИВАЙ"
-      onerror="this.style.display='none'; this.parentElement.classList.add('text-only')"
-    >
-
-    <span class="intro-fallback-text">
-      НАЛИВАЙ
-    </span>
-  </div>
-</div>
-
-
-<!-- ===================== АВТОМАТИЧНЕ ЗАКРИТТЯ ЗАСТАВКИ ===================== -->
-<script>
-  setTimeout(function () {
-
-    const intro = document.getElementById("introOverlay");
-
-    if (intro) {
-      intro.hidden = true;
-      intro.style.display = "none";
-    }
-
-  }, 1000);
-</script>
 
 <!-- ===================== РЕЄСТРАЦІЯ / ВХІД (обов'язковий екран, показується перший раз) ===================== -->
 <div class="modal-overlay reg-overlay" id="regOverlay">
   <div class="modal reg-card">
-    <div class="reg-logo">
-      <img src="logo.png" alt="НАЛИВАЙ" onerror="this.style.display='none'">
-    </div>
-    <p class="eyebrow">крок 1 з 1</p>
+    <div class="reg-logo"><span class="logo"><img src="mark.svg" alt="" width="34" height="34"><span class="logo-word">налив<b>ай</b></span></span></div>
+    <p class="eyebrow">реєстрація</p>
     <h2>Створи анкету</h2>
     <p class="reg-sub">Це займе хвилину. Без анкети не можна свайпати й лишати відгуки.</p>
 
@@ -168,7 +130,7 @@
     </label>
   </div>
 
-  <label>🍺 Що любиш пити
+  <label>Що любиш пити
     <input
       type="text"
       id="regDrinks"
@@ -177,7 +139,7 @@
     >
   </label>
 
-  <label>🍴 Що любиш їсти
+  <label>Що любиш їсти
     <input
       type="text"
       id="regFood"
@@ -185,7 +147,7 @@
     >
   </label>
 
-  <label>⭐ Улюблений заклад
+  <label>Улюблений заклад
     <input
       type="text"
       id="regFavPlace"
@@ -193,7 +155,7 @@
     >
   </label>
 
-  <label>🚶 Куди любиш ходити / хобі
+  <label>Куди любиш ходити / хобі
     <input
       type="text"
       id="regHobbies"
@@ -223,7 +185,7 @@
     class="email-confirm-message"
     hidden
   >
-    <h3>📧 Підтвердь Email</h3>
+    <h3>Підтвердь Email</h3>
 
     <p>
       Ми надіслали лист на
@@ -274,7 +236,7 @@
       </label>
 
       <div id="loginConfirmMessage" class="email-confirm-message" hidden>
-        <h3>📧 Перевір Email</h3>
+        <h3>Перевір Email</h3>
         <p>
           Ми надіслали посилання для входу на
           <strong id="loginConfirmAddress"></strong>
@@ -294,15 +256,12 @@
 
   <header class="app-header">
     <div class="brand">
-      <span class="brand-logo-plate">
-        <img src="logo.png" alt="НАЛИВАЙ" class="brand-logo" id="brandLogo" onerror="this.style.display='none'; document.getElementById('brandTextFallback').hidden=false;">
-        <span class="brand-glow" id="brandTextFallback" hidden>НАЛИВАЙ</span>
-      </span>
+      <span class="logo" id="brandLogo"><img src="mark.svg" alt="" width="34" height="34"><span class="logo-word">налив<b>ай</b></span></span>
       <span class="beta-pill">бета</span>
     </div>
     <div class="header-actions">
-      <button class="filter-btn" id="filterBtn">🔍 фільтри</button>
-      <button class="my-location" id="myLocationBadge">📍 визначити локацію</button>
+      <button class="filter-btn" id="filterBtn" aria-label="Фільтри"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg><span class="lbl">Фільтри</span></button>
+      <button class="my-location" id="myLocationBadge" aria-label="Визначити локацію"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg><span class="lbl">Локація</span></button>
     </div>
   </header>
 
@@ -313,12 +272,12 @@
       <div class="deck-wrap">
         <div class="deck" id="deck"></div>
         <div class="deck-empty" id="deckEmpty" hidden>
-          <p id="deckEmptyText">Це всі, хто зараз поруч 🍻<br>Заглянь пізніше — з'являться нові.</p>
+          <p id="deckEmptyText">Це всі, хто зараз поруч.<br>Заглянь пізніше — з'являться нові.</p>
           <button type="button" class="btn btn-ghost" id="showPassedBtn" hidden>Показати пропущених ще раз</button>
         </div>
         <div class="swipe-actions">
-          <button type="button" class="swipe-action-btn swipe-action-pass" id="passBtn" aria-label="Пропустити">✕</button>
-          <button type="button" class="swipe-action-btn swipe-action-like" id="likeBtn" aria-label="Лайк">🍾</button>
+          <button type="button" class="swipe-action-btn swipe-action-pass" id="passBtn" aria-label="Пропустити"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          <button type="button" class="swipe-action-btn swipe-action-like" id="likeBtn" aria-label="Лайк"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" fill="currentColor"><path d="M12 20s-7-4.4-9.2-9A5 5 0 0 1 12 6.2 5 5 0 0 1 21.2 11C19 15.6 12 20 12 20z"/></svg></button>
         </div>
         <p class="swipe-hint" id="swipeHint">← пропустити&nbsp;&nbsp;&nbsp;лайк →</p>
       </div>
@@ -357,7 +316,7 @@
       </div>
       <div id="chatListView">
         <div id="chatListItems"></div>
-        <p class="chats-empty" id="chatsEmpty" hidden>Поки що немає метчів.<br>Свайпни когось вправо 🍾</p>
+        <p class="chats-empty" id="chatsEmpty" hidden>Поки що немає метчів.<br>Свайпни когось вправо</p>
       </div>
       <div id="chatThreadView" hidden>
         <button id="backToChats" class="back-btn">← Усі чати</button>
@@ -365,7 +324,7 @@
         <div class="thread-messages" id="threadMessages"></div>
         <form id="threadForm" class="thread-form">
           <input type="text" id="threadInput" placeholder="Написати повідомлення…" autocomplete="off" required>
-          <button type="submit" class="send-btn">➤</button>
+          <button type="submit" class="send-btn" aria-label="Надіслати"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12 20 4l-6 16-3-7z"/></svg></button>
         </form>
       </div>
     </section>
@@ -379,7 +338,7 @@
       <form id="profileForm" class="profile-form">
         <div class="avatar-row">
           <div class="avatar-actions">
-            <div class="avatar-circle" id="avatarPreview">🙂</div>
+            <div class="avatar-circle" id="avatarPreview"></div>
             <label class="avatar-upload-label" for="pPhoto">Змінити фото</label>
             <input type="file" accept="image/*" id="pPhoto" class="photo-input">
           </div>
@@ -450,22 +409,22 @@
             <input type="text" id="pSettlementName" required placeholder="Черкаси">
           </label>
         </div>
-        <label>🍺 Що люблю пити
+        <label>Що люблю пити
           <input type="text" id="pDrinks" placeholder="Джин-тонік, крафтове пиво">
         </label>
-        <label>🍴 Що люблю їсти
+        <label>Що люблю їсти
           <input type="text" id="pFood" placeholder="Суші, бургери">
         </label>
-        <label>⭐ Улюблений заклад
+        <label>Улюблений заклад
           <input type="text" id="pFavPlace" placeholder="Бар «Хвиля»">
         </label>
-        <label>🚶 Куди люблю ходити / хобі
+        <label>Куди люблю ходити / хобі
           <input type="text" id="pHobbies" placeholder="Бари з живою музикою, настолки">
         </label>
         <label>Про себе
           <textarea id="pBio" rows="2" placeholder="Пара речень для контексту"></textarea>
         </label>
-        <button type="button" class="btn btn-ghost btn-full preview-trigger" id="previewBtn">👁 Прев'ю анкети — так тебе бачать інші</button>
+        <button type="button" class="btn btn-ghost btn-full preview-trigger" id="previewBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Прев'ю анкети — так тебе бачать інші</button>
         <button type="submit" class="btn btn-primary btn-full">Зберегти профіль</button>
         <p class="save-note" id="saveNote" hidden>Збережено ✓</p>
       </form>
@@ -480,17 +439,17 @@
 
   <nav class="bottom-nav">
     <button data-tab="bars" class="nav-btn">
-      <span class="nav-ico">🍸</span><span class="nav-label">Заклади</span>
+      <span class="nav-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10c0 6-2.2 9-5 9s-5-3-5-9z"/><path d="M12 12v8M8 21h8"/></svg></span><span class="nav-label">Заклади</span>
     </button>
-    <button data-tab="swipe" class="nav-btn nav-btn-main active">
-      <span class="nav-ico-main">🍾</span>
+    <button data-tab="swipe" class="nav-btn nav-btn-main active" aria-label="Знайомства">
+      <span class="nav-ico-main"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" fill="currentColor"><path d="M12 20s-7-4.4-9.2-9A5 5 0 0 1 12 6.2 5 5 0 0 1 21.2 11C19 15.6 12 20 12 20z"/></svg></span>
     </button>
     <button data-tab="chats" class="nav-btn">
-      <span class="nav-ico">💬</span><span class="nav-label">Чати</span>
+      <span class="nav-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg></span><span class="nav-label">Чати</span>
       <span class="nav-dot" id="chatDot" hidden></span>
     </button>
     <button data-tab="profile" class="nav-btn">
-      <span class="nav-ico">👤</span><span class="nav-label">Профіль</span>
+      <span class="nav-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><span class="nav-label">Профіль</span>
     </button>
   </nav>
 
@@ -499,7 +458,7 @@
 <!-- ===================== МЕТЧ MODAL ===================== -->
 <div class="modal-overlay match-overlay" id="matchOverlay" hidden>
   <div class="match-card">
-    <p class="match-eyebrow">🔥 Це метч!</p>
+    <p class="match-eyebrow">Це метч!</p>
     <h2 id="matchName">Ім'я</h2>
     <p class="match-sub">Тепер можна написати одне одному</p>
     <div class="match-actions">
@@ -584,16 +543,16 @@
       </div>
 
       <p class="filter-group-title">Деталі</p>
-      <label>🍺 Напій
+      <label>Напій
         <input type="text" id="fDrinks" placeholder="Наприклад, віскі">
       </label>
-      <label>🍴 Їжа
+      <label>Їжа
         <input type="text" id="fFood" placeholder="Наприклад, суші">
       </label>
-      <label>⭐ Улюблений заклад
+      <label>Улюблений заклад
         <input type="text" id="fPlace" placeholder="Наприклад, Хвиля">
       </label>
-      <label>📍 Місто / район
+      <label>Місто / район
         <input type="text" id="fSettlement" placeholder="Наприклад, центр">
       </label>
 
@@ -616,7 +575,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="script.js"></script>
  
  <script>
